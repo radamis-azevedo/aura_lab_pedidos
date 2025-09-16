@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Menu Principal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="container mt-5 text-center">
+  <h1 class="mb-4">Escolha o que deseja fazer:</h1>
+  <div class="d-grid gap-3 col-12 col-md-6 mx-auto">
+    <a href="/pedidos/por-cliente" class="btn btn-primary w-100">📋 Visualizar Pedidos por Cliente</a>
+    <a href="/pedidos/por-status" class="btn btn-info w-100">📊 Visualizar Pedidos por Status</a>
+    <a href="/clientes" class="btn btn-success w-100">👥 Listar Clientes Cadastrados</a>
+    <a href="/produtos" class="btn btn-warning w-100">📦 Listar Produtos do Catálogo</a>
+    <a href="/clientes/aprovar" class="btn btn-danger w-100">📝 Visualizar Clientes para Cadastrar</a>
+  </div>
+</body>
+</html>

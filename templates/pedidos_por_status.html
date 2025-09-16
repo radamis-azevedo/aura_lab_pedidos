@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pedidos por Status</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="container mt-4">
+  <h1>📊 Pedidos por Status</h1>
+  <a href="/" class="btn btn-secondary mb-3 w-100 w-md-auto">Voltar</a>
+
+  {% if status_map|length == 0 %}
+    <div class="alert alert-info">Nenhum pedido encontrado.</div>
+  {% else %}
+    {% for status, pedidos in status_map.items() %}
+      <h3>Status: {{ status }}</h3>
+      {% if pedidos|length == 0 %}
+        <p class="text-muted">Nenhum pedido com este status.</p>
+      {% else %}
+        <div class="table-responsive">
+          <table class="table table-striped mb-4">
+            <thead>
+              <tr><th>Pedido</th><th>Cliente</th><th>Paciente</th><th>Data</th><th>Valor</th><th>Ações</th></tr>
+            </thead>
+            <tbody>
+              {% for p in pedidos %}
+              <tr>
+                <td>{{ p['NR_PED'] }}</td>
+                <td>{{ p['CLIENTE'] }}</td>
+                <td>{{ p['PACIENTE'] }}</td>
+                <td>{{ p['DT_PED'] }}</td>
+                <td>{{ p['VLR_PED']|format_currency }}</td>
+                <td><a href="/pedidos/{{ p['NR_PED'] }}" class="btn btn-sm btn-outline-primary">Detalhes</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p><b>Total deste Status:</b> {{ (pedidos|sum(attribute='VLR_PED'))|format_currency }}</p>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+</body>
+</html>

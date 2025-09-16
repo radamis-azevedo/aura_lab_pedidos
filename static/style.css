@@ -1,0 +1,55 @@
+
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h1, h3 {
+    color: #343a40;
+    margin-bottom: 20px;
+}
+
+.table {
+    background-color: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.table-responsive {
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.btn {
+    font-size: 1rem;
+    padding: 12px 15px;
+    border-radius: 8px;
+}
+
+.alert {
+    font-size: 1.1rem;
+    border-radius: 8px;
+}
+
+.container {
+    max-width: 1000px;
+}
+
+/* Responsividade para celular */
+@media (max-width: 576px) {
+    .container {
+        padding: 10px;
+    }
+    .btn {
+        font-size: 0.95rem;
+        padding: 10px 12px;
+    }
+    h1 {
+        font-size: 1.4rem;
+    }
+    h3 {
+        font-size: 1.1rem;
+    }
+}

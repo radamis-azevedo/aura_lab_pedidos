@@ -1,18 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <title>Menu Principal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Pedidos</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="container mt-5 text-center">
-  <h1 class="mb-4">Escolha o que deseja fazer:</h1>
-  <div class="d-grid gap-3 col-12 col-md-6 mx-auto">
-    <a href="/pedidos/por-cliente" class="btn btn-primary w-100">📋 Visualizar Pedidos por Cliente</a>
-    <a href="/pedidos/por-status" class="btn btn-info w-100">📊 Visualizar Pedidos por Status</a>
-    <a href="/clientes" class="btn btn-success w-100">👥 Listar Clientes Cadastrados</a>
-    <a href="/produtos" class="btn btn-warning w-100">📦 Listar Produtos do Catálogo</a>
-    <a href="/clientes/aprovar" class="btn btn-danger w-100">📝 Visualizar Clientes para Cadastrar</a>
+<body>
+  <div class="container">
+
+    <!-- LOGO -->
+    <div class="logo">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo do Laboratório">
+    </div>
+
+    <h1>Gestão de Pedidos</h1>
+    <hr>
+
+    <!-- GRADE DE CARDS (2 colunas desktop, 1 no mobile) -->
+    <div class="grid">
+      <!-- Card 1: Pedidos a Receber -->
+      <div id="card-receber" data-id="card-receber" class="card">
+        <div class="card-header">
+          <h2>📌 Pedidos a Receber</h2>
+            <a href="{{ url_for('pedidos_a_receber') }}" class="btn-small">Detalhes</a>
+        </div>
+        <p><span class="numero">{{ total_receber_qtd }}</span> pedidos</p>
+        <p>Total: <span class="valor">{{ total_receber_val|format_brl }}</span></p>
+      </div>
+
+      <!-- Card 2: Menu -->
+      <div id="card-menu" data-id="card-menu" class="card">
+        <h2>📂 Menu</h2>
+        <div class="menu-btns">
+          <a href="#" class="btn">Opção 1</a>
+          <a href="#" class="btn">Opção 2</a>
+          <a href="#" class="btn">Opção 3</a>
+          <a href="#" class="btn">Opção 4</a>
+        </div>
+      </div>
+
+      <!-- Card 3: Prazo de Entrega -->
+      <div id="card-prazo" data-id="card-prazo" class="card">
+        <h2>⏳ Prazo de Entrega</h2>
+        <ul class="list">
+          <li>
+            <div>
+              <b>Já era pra serem entregues:</b>
+              {{ prazos["atrasados"]["qtd"] }} ({{ prazos["atrasados"]["val"]|format_brl }})
+            </div>
+            <a href="{{ url_for('detalhes', tipo='prazo', filtro='atrasados') }}" class="btn-small">Detalhes</a>
+          </li>
+          <li>
+            <div>
+              <b>Para HOJE:</b>
+              {{ prazos["hoje"]["qtd"] }} ({{ prazos["hoje"]["val"]|format_brl }})
+            </div>
+            <a href="{{ url_for('detalhes', tipo='prazo', filtro='hoje') }}" class="btn-small">Detalhes</a>
+          </li>
+          <li>
+            <div>
+              <b>A partir de amanhã:</b>
+              {{ prazos["futuros"]["qtd"] }} ({{ prazos["futuros"]["val"]|format_brl }})
+            </div>
+            <a href="{{ url_for('detalhes', tipo='prazo', filtro='futuro') }}" class="btn-small">Detalhes</a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Card 4: Status -->
+      <div id="card-status" data-id="card-status" class="card">
+        <h2>📊 Por Status</h2>
+        <ul class="list">
+          {% for status, dados in status_map.items() %}
+          <li>
+            <div>
+              <b>{{ status }}:</b> {{ dados["qtd"] }} ({{ dados["val"]|format_brl }})
+            </div>
+            <a href="{{ url_for('detalhes', tipo='status', filtro=status) }}" class="btn-small">Detalhes</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
   </div>
+
+  <!-- SortableJS para drag & drop com persistência -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script>
+    const grid = document.querySelector('.grid');
+    new Sortable(grid, {
+      animation: 150,
+      ghostClass: 'dragging',
+      forceFallback: true,
+      touchStartThreshold: 5,
+      dataIdAttr: 'data-id',
+      store: {
+        set: function (sortable) {
+          const order = sortable.toArray();
+          localStorage.setItem('cardsOrder', order.join('|'));
+        },
+        get: function () {
+          const order = localStorage.getItem('cardsOrder');
+          return order ? order.split('|') : [];
+        }
+      }
+    });
+  </script>
 </body>
 </html>

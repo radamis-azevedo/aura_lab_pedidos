@@ -1,0 +1,28 @@
+{% if itens and itens|length > 0 %}
+  <table class="tabela-itens">
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Cor</th>
+        <th>Valor Catálogo</th>
+        <th>Valor Cobrado</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in itens %}
+      <tr>
+        <td>{{ i["PRODUTO"] }}</td>
+        <td>{{ i["QTDE"] }}</td>
+        <td>{{ i["COR"] }}</td>
+        <td>{{ i["VLR_CAT"] }}</td>
+        <td>{{ i["VLR_COB"] }}</td>
+        <td>{{ i["TOTAL_PROD"] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>Sem itens vinculados para este pedido.</p>
+{% endif %}

@@ -119,9 +119,15 @@ def logout():
 
 @app.before_request
 def require_login():
-    rotas_livres = {"login", "static"}
+    rotas_livres = {"login", "static", "healthz"}
     if request.endpoint not in rotas_livres and "usuario" not in session:
         return redirect(url_for("login"))
+
+
+
+@app.route("/healthz")
+def healthz():
+    return "OK", 200
 
 # =============================
 # ROTAS PRINCIPAIS

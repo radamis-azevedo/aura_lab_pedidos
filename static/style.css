@@ -1,4 +1,6 @@
-/* Base */
+/* ========================
+   BASE
+======================== */
 body {
   font-family: Arial, sans-serif;
   background: #f4f6f9;
@@ -14,13 +16,7 @@ body {
   text-align: center;
 }
 
-.logo img {
-  max-width: 140px;
-  margin: 0 auto 15px;
-  display: block;
-}
-
-h1 {
+h1, h2 {
   margin: 10px 0 5px;
 }
 
@@ -31,7 +27,9 @@ hr {
   margin: 10px auto 20px;
 }
 
-/* Grid 2 colunas desktop, 1 no mobile */
+/* ========================
+   GRID DE CARDS
+======================== */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(320px, 1fr));
@@ -42,7 +40,9 @@ hr {
   .grid { grid-template-columns: 1fr; }
 }
 
-/* Cards */
+/* ========================
+   CARDS
+======================== */
 .card {
   background: #fff;
   padding: 18px;
@@ -56,31 +56,91 @@ hr {
 #card-menu { border-left-color: #007BFF; }
 #card-prazo { border-left-color: #ffc107; }
 #card-status { border-left-color: #6f42c1; }
+#card-porcliente { border-left-color: #17a2b8; }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+/* ========================
+   TÍTULOS DETALHES
+======================== */
+.titulo-detalhes {
+  margin: 10px 0;
+  font-size: 1.6em;
+  font-weight: bold;
 }
+.titulo-detalhes.receber { color: #28a745; }
+.titulo-detalhes.prazo { color: #ffc107; }
+.titulo-detalhes.status { color: #6f42c1; }
+.titulo-detalhes.porcliente { color: #17a2b8; }
 
-/* Listas internas */
+/* ========================
+   LISTAS GERAIS
+======================== */
 .list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
+/* Ajusta as linhas das listas para alinhar texto + botão */
 .list li {
+  padding: 10px 0;
+  border-bottom: 1px dashed #e3e3e3;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px dashed #e3e3e3;
+  gap: 10px
 }
 .list li:last-child { border-bottom: none; }
 
-/* Botões */
+/* Garante que o texto ocupe o espaço disponível */
+.list li div {
+  flex: 1;
+  text-align: left;
+}
+
+/* Botões sempre do mesmo tamanho e alinhados à direita */
+.list li a.btn-small {
+  flex-shrink: 0;        /* botão não encolhe */
+  min-width: 50px;       /* largura mínima fixa */
+  text-align: center;
+}
+
+
+/* ========================
+   LISTA DE CLIENTES DEVEDORES
+======================== */
+.list li.cliente-row {
+  display: grid;
+  grid-template-columns: 70% 30%;
+  align-items: center;
+  font-size: 0.8em;
+}
+.list li.cliente-row .cliente-info {
+  text-align: left;
+  font-weight: 500;
+  
+}
+.list li.cliente-row .valor-info {
+  text-align: right;
+  font-weight: bold;
+
+}
+
+/* Última linha (Total dos clientes + botão) */
+.list li.total-row {
+  display: grid;
+  grid-template-columns: 30% 70%;
+  align-items: center;
+  font-weight: bold;
+}
+.list li.total-row a.btn-small {
+  justify-self: start;
+}
+.list li.total-row span {
+  justify-self: end;
+}
+
+/* ========================
+   BOTÕES
+======================== */
 .btn, .btn-small {
   display: inline-block;
   background: #007BFF;
@@ -94,11 +154,15 @@ hr {
 .btn:hover, .btn-small:hover { background: #0056b3; }
 .btn-small { font-size: 0.8em; padding: 6px 10px; }
 
-/* Destaques */
+/* ========================
+   DESTAQUES
+======================== */
 .numero { font-weight: 700; font-size: 1.4em; }
 .valor { font-weight: 700; color: #28a745; }
 
-/* Menu card */
+/* ========================
+   MENU DO CARD
+======================== */
 .menu-btns {
   display: flex;
   flex-direction: column;
@@ -106,123 +170,138 @@ hr {
 }
 .menu-btns .btn { width: 90%; text-align: center; }
 
-/* Drag visual */
+/* ========================
+   DRAG & DROP
+======================== */
 .dragging {
   opacity: .6;
   background: #f1f1f1;
   border: 2px dashed #007BFF;
 }
 
-/* ===== Detalhes (tabela com expansão) ===== */
-.tabela-detalhes {
+/* ========================
+   DETALHES POR CLIENTE
+======================== */
+.cliente { margin: 20px 0; }
+.cliente h3 {
+  background: #007BFF;
+  color: #fff;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px 8px 0 0;
+}
+.cliente table {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
   overflow: hidden;
   border-radius: 0 0 8px 8px;
 }
-
-.tabela-detalhes th, .tabela-detalhes td {
+.cliente th, .cliente td {
   padding: 10px;
   border-bottom: 1px solid #eee;
   text-align: left;
   font-size: .95em;
 }
-.tabela-detalhes th {
-  background: #f7f7f7;
-  font-weight: 600;
-}
+.cliente th { background: #f7f7f7; font-weight: 600; }
+.cliente tr:hover { background: #fafafa; }
 
-.accordion-btn {
-  background: #3498db;
-  color: #fff;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.accordion-btn:hover { background: #2980b9; }
-
-.accordion-content {
-  display: none;            /* JS troca para table-row */
-  background: #fafafa;
-}
-.accordion-box {
-  padding: 10px 6px;
-  font-size: .95em;
-}
-.itens-titulo {
-  font-weight: 600;
-  color: #007BFF;
-  margin-bottom: 6px;
-}
-
-/* Tabela interna (itens) */
-.tabela-itens {
-  width: 100%;
-  border-collapse: collapse;
+/* ========================
+   TOPO (LOGO + USUÁRIO)
+======================== */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
   background: #fff;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  overflow: hidden;
+  border-bottom: 2px solid #eaeaea;
 }
-.tabela-itens th, .tabela-itens td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #eee;
-  text-align: left;
-  font-size: .92em;
+.top-bar .logo img {
+  max-height: 40px;
 }
-.tabela-itens th {
-  background: #f3f6fb;
-  font-weight: 600;
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #333;
 }
-.tabela-itens tr:nth-child(even) { background: #fafafa; }
+.user-info .btn-small {
+  background: #dc3545;
+  padding: 6px 12px;
+  font-size: 0.8em;
+}
+.user-info .btn-small:hover { background: #b02a37; }
 
-.titulo-detalhes {
-  font-size: 1.8em;
+/* ========================
+   SWITCH (toggle)
+======================== */
+.switch-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 15px 0;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+.switch input { display: none; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+input:checked + .slider { background-color: #17a2b8; }
+input:checked + .slider:before { transform: translateX(22px); }
+
+.switch-label {
+  font-size: 0.95em;
+  color: #444;
+}
+
+/* ========================
+   LOGIN
+======================== */
+.login-box {
+  max-width: 350px;
+  margin: 60px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   text-align: center;
-  margin: 20px 0;
-  padding: 12px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  text-transform: capitalize;
-  letter-spacing: 1px;
-  color: #fff;
 }
-
-/* Cores específicas */
-.titulo-detalhes.receber {
-  background: linear-gradient(90deg, #28a745, #218838); /* Verde */
+.login-box .logo img {
+  max-width: 120px;
+  margin-bottom: 15px;
 }
-
-.titulo-detalhes.prazo {
-  background: linear-gradient(90deg, #ffc107, #e0a800); /* Amarelo */
-  color: #333; /* texto mais escuro pra contrastar */
-}
-
-.titulo-detalhes.status {
-  background: linear-gradient(90deg, #6f42c1, #5a32a3); /* Roxo */
-}
-
-/* Base */
-.cliente {
-  margin: 20px 0;
-  border-left: 6px solid #007BFF; /* padrão */
+.login-form .form-group { margin: 12px 0; text-align: left; }
+.login-form label { font-weight: bold; display: block; margin-bottom: 4px; }
+.login-form input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
   border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
-
-.cliente h3 {
-  background: #f7f7f7;
-  margin: 0;
-  padding: 8px 12px;
-  font-size: 1.1em;
-  font-weight: 600;
-}
-
-/* Variações */
-.cliente.receber { border-left-color: #28a745; } /* Verde */
-.cliente.prazo { border-left-color: #ffc107; }   /* Amarelo */
-.cliente.status { border-left-color: #6f42c1; }  /* Roxo */
+.login-box .btn { width: 100%; margin-top: 15px; }
+.erro { color: red; margin-top: 10px; font-size: 0.9em; }

@@ -2,24 +2,46 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Detalhes</title>
+  <title>Pedidos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="container">
-    <div class="logo">
-      <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo do Laboratório">
+    <!-- Header com usuário e logout -->
+    <div class="top-bar">
+      <div class="logo">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo do Laboratório">
+      </div>
+      {% if usuario %}
+      <div class="user-info">
+        <span>👤 {{ usuario }}</span>
+        <a href="{{ url_for('logout') }}" class="btn-small">Sair</a>
+      </div>
+      {% endif %}
     </div>
 
-    <h2 class="titulo-detalhes {{ tipo }}">{{ filtro|capitalize }}</h2>
+    <!-- Título -->
+    <h2 class="titulo-detalhes {{ tipo }}">{{ filtro }}</h2>
     <hr>
 
+    <!-- Switch (só aparece para o card porcliente) -->
+    {% if tipo == "porcliente" %}
+    <div class="switch-box">
+      <label class="switch">
+        <input type="checkbox" id="toggle-entregues"
+               {% if "todos" in filtro|lower %}checked{% endif %}>
+        <span class="slider round"></span>
+      </label>
+      <span class="switch-label">Mostrar pedidos entregues</span>
+    </div>
+    {% endif %}
+
+    <!-- Conteúdo -->
     {% if agrupado %}
       {% for cliente, pedidos in agrupado.items() %}
         <div class="card cliente {{ tipo }}">
           <h3>{{ cliente }}</h3>
-
           <table class="tabela-detalhes">
             <thead>
               <tr>
@@ -34,8 +56,7 @@
             </thead>
             <tbody>
               {% for p in pedidos %}
-              <!-- Linha principal do pedido (somente dados da aba PEDIDOS) -->
-              <tr class="accordion-row">
+              <tr class="accordion-row pedido-row {% if p.STATUS|lower == 'entregue' %}entregue{% endif %}">
                 <td>
                   <button class="accordion-btn" id="btn-{{ p.NR_PED }}" onclick="toggleItens('{{ p.NR_PED }}')">+</button>
                 </td>
@@ -47,37 +68,11 @@
                 <td style="text-align:right;">{{ p.VLR_NUM|format_brl }}</td>
               </tr>
 
-              <!-- Linha oculta (expansão) com itens da aba PEDIDOS_ITENS -->
+              <!-- Linha oculta (expansão com itens) -->
               <tr id="itens-{{ p.NR_PED }}" class="accordion-content">
                 <td colspan="7">
-                  <div class="accordion-box">
-                    {% if p.ITENS and p.ITENS|length > 0 %}
-                      <div class="itens-titulo">Itens do pedido {{ p.NR_PED }}</div>
-                      <table class="tabela-itens">
-                        <thead>
-                          <tr>
-                            <th>Produto</th>
-                            <th>Qtd</th>
-                            <th>Cor</th>
-                            <th>Vlr Cobrado</th>
-                            <th>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {% for i in p.ITENS %}
-                          <tr>
-                            <td>{{ i.PRODUTO }}</td>
-                            <td style="text-align:center;">{{ i.QTDE }}</td>
-                            <td style="text-align:center;">{{ i.COR }}</td>
-                            <td style="text-align:right;">{{ i.VLR_COB }}</td>
-                            <td style="text-align:right;">{{ i.TOTAL_PROD }}</td>
-                          </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                    {% else %}
-                      <em>Sem itens vinculados para este pedido.</em>
-                    {% endif %}
+                  <div class="accordion-box conteudo-itens">
+                    <em>Carregando itens...</em>
                   </div>
                 </td>
               </tr>
@@ -93,39 +88,46 @@
     <a href="{{ url_for('index') }}" class="btn" style="margin-top:14px;">⬅ Voltar</a>
   </div>
 
+  <!-- Script -->
   <script>
-    function toggleItens(id) {
-      const row = document.getElementById("itens-" + id);
-      const btn = document.getElementById("btn-" + id);
+    // Expansão de itens
+    function toggleItens(nr_ped) {
+      const row = document.getElementById("itens-" + nr_ped);
+      const btn = document.getElementById("btn-" + nr_ped);
       const isHidden = row.style.display === "" || row.style.display === "none";
-      row.style.display = isHidden ? "table-row" : "none";
-      btn.textContent = isHidden ? "−" : "+";
+
+      if (isHidden) {
+        fetch(`/itens/${nr_ped}`)
+          .then(resp => resp.text())
+          .then(html => {
+            row.querySelector(".conteudo-itens").innerHTML = html;
+            row.style.display = "table-row";
+            btn.textContent = "−";
+          })
+          .catch(() => {
+            row.querySelector(".conteudo-itens").innerHTML = "<p>Erro ao carregar itens.</p>";
+            row.style.display = "table-row";
+          });
+      } else {
+        row.style.display = "none";
+        btn.textContent = "+";
+      }
     }
+
     // Inicia todas as expansões escondidas
     document.querySelectorAll(".accordion-content").forEach(r => r.style.display = "none");
-    
-    function expandirItens(nr_ped, btn) {
-    const linhaItens = btn.closest("tr").nextElementSibling;
-    const container = linhaItens.querySelector(".conteudo-itens");
 
-    if (linhaItens.style.display === "none") {
-      // Carregar itens via rota /itens/<nr_ped>
-      fetch(`/itens/${nr_ped}`)
-        .then(resp => resp.text())
-        .then(html => {
-          container.innerHTML = html;
-          linhaItens.style.display = "table-row";
-          btn.textContent = "-"; // troca ícone
-        });
-    } else {
-      linhaItens.style.display = "none";
-      container.innerHTML = "";
-      btn.textContent = "+";
+    // Controle do switch (para pedidos entregues)
+    const toggle = document.getElementById("toggle-entregues");
+    if (toggle) {
+      toggle.addEventListener("change", function() {
+        if (this.checked) {
+          window.location.href = "{{ url_for('detalhes', tipo='porcliente', filtro='todos') }}";
+        } else {
+          window.location.href = "{{ url_for('detalhes', tipo='porcliente', filtro='naoentregues') }}";
+        }
+      });
     }
-  }
   </script>
-
-
-
 </body>
 </html>

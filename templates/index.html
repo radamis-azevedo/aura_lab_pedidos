@@ -7,34 +7,33 @@
   <hr>
 
   <!-- Botão de ativar/desativar drag-and-drop -->
-  <button id="toggle-dnd" class="btn-small">🔀 Ativar Drag & Drop</button>
+  <button id="toggle-dnd" class="btn-small">🔀 Reordenar Cards</button>
 
   <!-- GRADE DE CARDS -->
   <div class="grid">
     
-	<!-- Card 1: Pedidos a Receber -->
-	<div id="card-receber" data-id="card-receber" class="card">
-	  <div class="card-header">
-		<h2>📌 Pedidos a Receber</h2>
-	  </div>
-	  <div class="card-body">
-		<ul class="list">
-		  {% for cliente, dados in clientes_devedores.items() %}
-		  <li class="cliente-row">
-			<span class="cliente-info">{{ dados["titulo"] }}</span>
-			<span class="valor-info">{{ dados["valor"]|format_brl }}</span>
-		  </li>
-		  {% endfor %}
+    <!-- Card 1: Pedidos a Receber -->
+    <div id="card-receber" data-id="card-receber" class="card">
+      <div class="card-header">
+        <h2>📌 Pedidos a Receber</h2>
+      </div>
+      <div class="card-body">
+        <ul class="list">
+          {% for cliente, dados in clientes_devedores.items() %}
+          <li class="cliente-row">
+            <span class="cliente-info">{{ dados["titulo"] }}</span>
+            <span class="valor-info">{{ dados["valor"]|format_brl }}</span>
+          </li>
+          {% endfor %}
 
-		  <!-- Linha final com botão e total -->
-		  <li class="total-row">
-			<a href="{{ url_for('areceber') }}" class="btn-small">Detalhes</a>
-			<span>Total dos Clientes: {{ total_receber_val|format_brl }}</span>
-		  </li>
-		</ul>
-	  </div>
-	</div>
-
+          <!-- Linha final com botão e total -->
+          <li class="total-row">
+            <a href="{{ url_for('areceber') }}" class="btn-small">Detalhes</a>
+            <span>Total dos Clientes: {{ total_receber_val|format_brl }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
 
     <!-- Card 2: Menu -->
     <div id="card-menu" data-id="card-menu" class="card">
@@ -46,103 +45,77 @@
       </div>
     </div>
 
-	<!-- Card 3: Prazo de Entrega -->
-	<div id="card-prazo" data-id="card-prazo" class="card">
-	  <h2>⏳ Prazo de Entrega</h2>
-	  <ul class="list">
-		<li>
-		  <div>
-			<b>Já era pra serem entregues:</b>
-			{{ prazos["atrasados"]["qtd"] }} ({{ prazos["atrasados"]["val"]|format_brl }})
-		  </div>
-		  <a href="{{ url_for('detalhes', tipo='prazo', filtro='atrasados') }}" class="btn-small">Detalhes</a>
-		</li>
-		<li>
-		  <div>
-			<b>Para HOJE:</b>
-			{{ prazos["hoje"]["qtd"] }} ({{ prazos["hoje"]["val"]|format_brl }})
-		  </div>
-		  <a href="{{ url_for('detalhes', tipo='prazo', filtro='hoje') }}" class="btn-small">Detalhes</a>
-		</li>
-		<li>
-		  <div>
-			<b>A partir de amanhã:</b>
-			{{ prazos["futuros"]["qtd"] }} ({{ prazos["futuros"]["val"]|format_brl }})
-		  </div>
-		  <a href="{{ url_for('detalhes', tipo='prazo', filtro='futuro') }}" class="btn-small">Detalhes</a>
-		</li>
-	  </ul>
-	</div>
+    <!-- Card 3: Prazo de Entrega -->
+    <div id="card-prazo" data-id="card-prazo" class="card">
+      <h2>⏳ Prazo de Entrega</h2>
+      <ul class="list">
+        <li>
+          <div>
+            <b>Já era pra serem entregues:</b>
+            {{ prazos["atrasados"]["qtd"] }} ({{ prazos["atrasados"]["val"]|format_brl }})
+          </div>
+          <a href="{{ url_for('detalhes', tipo='prazo', filtro='atrasados') }}" class="btn-small">Detalhes</a>
+        </li>
+        <li>
+          <div>
+            <b>Para HOJE:</b>
+            {{ prazos["hoje"]["qtd"] }} ({{ prazos["hoje"]["val"]|format_brl }})
+          </div>
+          <a href="{{ url_for('detalhes', tipo='prazo', filtro='hoje') }}" class="btn-small">Detalhes</a>
+        </li>
+        <li>
+          <div>
+            <b>A partir de amanhã:</b>
+            {{ prazos["futuros"]["qtd"] }} ({{ prazos["futuros"]["val"]|format_brl }})
+          </div>
+          <a href="{{ url_for('detalhes', tipo='prazo', filtro='futuro') }}" class="btn-small">Detalhes</a>
+        </li>
+      </ul>
+    </div>
 
-	<!-- Card 4: Status -->
-	<div id="card-status" data-id="card-status" class="card">
-	  <h2>📊 Por Status</h2>
-	  <ul class="list">
-		{% for status, dados in status_map.items() %}
-		<li>
-		  <div>
-			<b>{{ status }}:</b> {{ dados["qtd"] }} ({{ dados["val"]|format_brl }})
-		  </div>
-		  <a href="{{ url_for('detalhes', tipo='status', filtro=status) }}" class="btn-small">Detalhes</a>
-		</li>
-		{% endfor %}
-	  </ul>
-	</div>
-
+    <!-- Card 4: Status -->
+    <div id="card-status" data-id="card-status" class="card">
+      <h2>📊 Por Status</h2>
+      <ul class="list">
+        {% for status, dados in status_map.items() %}
+        <li>
+          <div>
+            <b>{{ status }}:</b> {{ dados["qtd"] }} ({{ dados["val"]|format_brl }})
+          </div>
+          <a href="{{ url_for('detalhes', tipo='status', filtro=status) }}" class="btn-small">Detalhes</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
   </div>
+
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const grid = document.querySelector(".grid");
       const toggleDnD = document.getElementById("toggle-dnd");
-      let dragEnabled = false;
-      let dragged = null;
 
-      toggleDnD.addEventListener("click", () => {
-        dragEnabled = !dragEnabled;
-        toggleDnD.textContent = dragEnabled ? "✅ Drag & Drop Ativado" : "🔀 Ativar Drag & Drop";
-
-        // 🔹 Ativa ou desativa o atributo draggable em TODOS os cards
-        const cards = document.querySelectorAll(".card");
-        cards.forEach(card => card.setAttribute("draggable", dragEnabled));
+      // Inicializa SortableJS (desktop + mobile)
+      const sortable = new Sortable(grid, {
+        animation: 150,
+        disabled: true, // começa desativado
+        onEnd: salvarOrdem
       });
 
-      grid.addEventListener("dragstart", e => {
-        if (!dragEnabled) return;
-        dragged = e.target;
-        e.target.classList.add("dragging");
-      });
+      // Alterna drag-and-drop ao clicar no botão
+		let dragEnabled = false;
 
-      grid.addEventListener("dragend", e => {
-        if (!dragEnabled) return;
-        e.target.classList.remove("dragging");
-        salvarOrdem();
-      });
+		toggleDnD.addEventListener("click", () => {
+		  dragEnabled = !dragEnabled;
+		  sortable.option("disabled", !dragEnabled); // agora respeita o estado real
+		  toggleDnD.textContent = dragEnabled ? "✅ Reordene os Cards" : "🔀 Reordenar Cards";
+		});
 
-      grid.addEventListener("dragover", e => {
-        if (!dragEnabled) return;
-        e.preventDefault();
-        const afterElement = getDragAfterElement(grid, e.clientY);
-        if (afterElement == null) {
-          grid.appendChild(dragged);
-        } else {
-          grid.insertBefore(dragged, afterElement);
-        }
-      });
 
-      function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll(".card:not(.dragging)")];
-        return draggableElements.reduce((closest, child) => {
-          const box = child.getBoundingClientRect();
-          const offset = y - box.top - box.height / 2;
-          if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-          } else {
-            return closest;
-          }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-      }
-
+      // Função para salvar ordem no backend
       function salvarOrdem() {
         const ordem = [...grid.querySelectorAll(".card")].map(c => c.id);
         fetch("/salvar_layout", {

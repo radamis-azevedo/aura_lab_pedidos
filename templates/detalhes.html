@@ -42,43 +42,54 @@
       {% for cliente, pedidos in agrupado.items() %}
         <div class="card cliente {{ tipo }}">
           <h3>{{ cliente }}</h3>
-          <table class="tabela-detalhes">
-            <thead>
-              <tr>
-                <th style="width:48px;"></th>
-                <th>Nº Pedido</th>
-                <th>Paciente</th>
-                <th>Data do Pedido</th>
-                <th>Prazo</th>
-                <th>Status</th>
-                <th style="text-align:right;">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for p in pedidos %}
-              <tr class="accordion-row pedido-row {% if p.STATUS|lower == 'entregue' %}entregue{% endif %}">
-                <td>
-                  <button class="accordion-btn" id="btn-{{ p.NR_PED }}" onclick="toggleItens('{{ p.NR_PED }}')">+</button>
-                </td>
-                <td>{{ p.NR_PED }}</td>
-                <td>{{ p.PACIENTE }}</td>
-                <td>{{ p.DT_PED|format_date_br }}</td>
-                <td>{{ p.DT_PRAZO|format_date_br }}</td>
-                <td>{{ p.STATUS }}</td>
-                <td style="text-align:right;">{{ p.VLR_NUM|format_brl }}</td>
-              </tr>
+          <div class="table-wrapper">
+            <table class="tabela-detalhes">
+              <thead>
+                <tr>
+                  <th class="col-btn"></th> <!-- coluna do botão + -->
+                  <th>#</th>
+				  <th>Status</th>
+                  <th>Paciente</th>
+                  <th>Data Ped</th>
+				  <th>Prazo</th>
+                  <th style="text-align:right;">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in pedidos %}
+                <tr class="accordion-row pedido-row {% if p.STATUS|lower == 'entregue' %}entregue{% endif %}">
+                  <td>
+                    <button class="accordion-btn" id="btn-{{ p.NR_PED }}" onclick="toggleItens('{{ p.NR_PED }}')">+</button>
+                  </td>
+                  <td>{{ p.NR_PED }}</td>
+                  <td>
+					{% if p.STATUS|lower == "entregue" %}
+						<a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}" class="status-link">✅</a> {{ p.STATUS }}
+					{% elif p.STATUS|lower == "atrasado" %}
+						<a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}" class="status-link">🔴</a> {{ p.STATUS }}
+					{% else %}
+						<a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}" class="status-link">🟡</a> {{ p.STATUS }}
+					{% endif %}
+				  </td>
 
-              <!-- Linha oculta (expansão com itens) -->
-              <tr id="itens-{{ p.NR_PED }}" class="accordion-content">
-                <td colspan="7">
-                  <div class="accordion-box conteudo-itens">
-                    <em>Carregando itens...</em>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+				  <td>{{ p.PACIENTE }}</td>
+                  <td>{{ p.DT_PED|format_date_br }}</td>
+                  <td>{{ p.DT_PRAZO|format_date_br }}</td>
+                  <td style="text-align:right;">{{ p.VLR_NUM|format_brl }}</td>
+                </tr>
+
+                <!-- Linha oculta (expansão com itens) -->
+                <tr id="itens-{{ p.NR_PED }}" class="accordion-content">
+                  <td colspan="7">
+                    <div class="accordion-box conteudo-itens">
+                      <em>Carregando itens...</em>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       {% endfor %}
     {% else %}
@@ -90,34 +101,52 @@
 
   <!-- Script -->
   <script>
-    // Expansão de itens
-    function toggleItens(nr_ped) {
-      const row = document.getElementById("itens-" + nr_ped);
-      const btn = document.getElementById("btn-" + nr_ped);
-      const isHidden = row.style.display === "" || row.style.display === "none";
-
-      if (isHidden) {
-        fetch(`/itens/${nr_ped}`)
-          .then(resp => resp.text())
-          .then(html => {
-            row.querySelector(".conteudo-itens").innerHTML = html;
-            row.style.display = "table-row";
-            btn.textContent = "−";
-          })
-          .catch(() => {
-            row.querySelector(".conteudo-itens").innerHTML = "<p>Erro ao carregar itens.</p>";
-            row.style.display = "table-row";
-          });
-      } else {
-        row.style.display = "none";
-        btn.textContent = "+";
+    // 🔹 Event delegation para botões accordion
+    document.addEventListener("click", e => {
+      if (e.target.classList.contains("accordion-btn")) {
+        const nr_ped = e.target.dataset.ped;
+        toggleItens(nr_ped, e.target);
       }
-    }
+    });
 
-    // Inicia todas as expansões escondidas
+
+  function toggleItens(nr_ped) {
+    const row = document.getElementById("itens-" + nr_ped);
+    const btn = document.getElementById("btn-" + nr_ped);
+    const isHidden = row.style.display === "" || row.style.display === "none";
+
+    if (isHidden) {
+      fetch(`/itens/${nr_ped}`)
+        .then(async resp => {
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(`HTTP ${resp.status} - ${text.substring(0, 200)}`);
+          }
+          return resp.text();
+        })
+        .then(html => {
+          row.querySelector(".conteudo-itens").innerHTML = html;
+          row.style.display = "table-row";
+          btn.textContent = "−";
+        })
+        .catch(err => {
+          console.error("Erro ao carregar itens:", err);
+          row.querySelector(".conteudo-itens").innerHTML =
+            `<p style="color:#b02a37;">Erro ao carregar itens: ${err.message}</p>`;
+          row.style.display = "table-row";
+          btn.textContent = "−";
+        });
+    } else {
+      row.style.display = "none";
+      btn.textContent = "+";
+    }
+  }
+
+
+    // 🔹 Inicia todas as expansões escondidas
     document.querySelectorAll(".accordion-content").forEach(r => r.style.display = "none");
 
-    // Controle do switch (para pedidos entregues)
+    // 🔹 Controle do switch (para pedidos entregues)
     const toggle = document.getElementById("toggle-entregues");
     if (toggle) {
       toggle.addEventListener("change", function() {

@@ -21,6 +21,17 @@
 
   <div class="status-container">
     <h2 class="status-header">Histórico do Pedido #{{ nr_ped }}</h2>
+	
+	{% with messages = get_flashed_messages(with_categories=true) %}
+	  {% if messages %}
+		<div class="flash-messages">
+		  {% for category, message in messages %}
+			<div class="flash {{ category }}">{{ message }}</div>
+		  {% endfor %}
+		</div>
+	  {% endif %}
+	{% endwith %}
+	
 
     <!-- TABELA HISTÓRICO -->
     <div class="table-wrapper">
@@ -41,12 +52,12 @@
           <tr>
             <td class="edit-cell">
               <button class="edit-btn" 
-                onclick="editarHistorico('{{ h.STATUS_HIST }}','{{ h.DT_HR_STATUS }}','{{ h.PRAZO_STATUS }}','{{ h.DT_HR_PRAZO }}','{{ h.OBS_STATUS }}','{{ h.row_index }}')">✏️</button>
+                onclick="editarHistorico('{{ h.STATUS_HIST }}','{{ h.DT_HR_STATUS }}','{{ h.PRAZO_STATUS }}','{{ h.OBS_STATUS }}','{{ h.row_index }}')">✏️</button>
             </td>
             <td>{{ h.STATUS_HIST }}</td>
             <td>{{ h.DT_HR_STATUS }}</td>
             <td>{{ h.PRAZO_STATUS }}</td>
-            <td>{{ h.DT_HR_PRAZO }}</td>
+            <td>{{ h.DT_HR_PRAZO }}</td>			
             <td>{{ h.OBS_STATUS }}</td>
             <td>{{ h.USUARIO }} em {{ h.DATA_HORA }}</td>
           </tr>
@@ -77,28 +88,21 @@
         </label>
       </div>
 
-      <!-- Linha 2: Data/Hora Início + Prazo -->
-      <div class="form-row">
-        <label style="flex:3">
-          Data/Hora Início:
-          <input type="datetime-local" name="dt_hr_status" id="dt_hr_status" value="{{ now_str }}">
-        </label>
-        <label style="flex:1; max-width:90px">
-          Prazo (dias):
-          <input type="number" name="prazo" id="prazo" min="0" max="99">
-        </label>
-      </div>
+		<!-- Linha 2: Data/Hora Início + Prazo -->
+		<div class="form-row prazo-row">
+		  <label>
+			Data/Hora Início:
+			<input type="datetime-local" name="dt_hr_status" id="dt_hr_status" value="{{ now_str }}">
+		  </label>
+		  <label>
+			Prazo (dias):
+			<input type="number" name="prazo" id="prazo" min="0" max="99">
+		  </label>
+		</div>
 
-      <!-- Linha 3: Data/Hora Prazo -->
-      <div class="form-row">
-        <label style="flex:1">
-          Data/Hora Prazo:
-          <input type="text" name="dt_hr_prazo" id="dt_hr_prazo" readonly>
-          <small>Calculado automaticamente</small>
-        </label>
-      </div>
 
-      <!-- Linha 4: Observações -->
+ 
+      <!-- Linha 3: Observações -->
       <div class="form-row">
         <label style="flex:1">
           Observações:
@@ -108,7 +112,7 @@
 
       <button type="submit">Salvar</button>
       <button type="button" class="cancel-btn" onclick="resetarFormulario()">Cancelar</button>
-      <button type="button" id="delete-btn" class="cancel-btn" style="display:none;">🗑️ Excluir</button>
+      <button type="button" id="delete-btn" class="delete-btn" style="display:none;">Excluir</button>
     </form>
 
     <!-- BOTÃO VOLTAR NO RODAPÉ -->
@@ -120,14 +124,12 @@
   <script>
     const nr_ped = "{{ nr_ped }}";  // expõe o número do pedido
 
-    function editarHistorico(status, dt_hr_status, prazo, dt_hr_prazo, obs, row_index) {
+    function editarHistorico(status, dt_hr_status, prazo, obs, row_index) {
       document.getElementById("form-title").textContent = "✏️ Editar Status";
       document.getElementById("status").value = status;
       document.getElementById("dt_hr_status").value = formatarInputDateTime(dt_hr_status);
       document.getElementById("prazo").value = prazo;
-      document.getElementById("dt_hr_prazo").value = dt_hr_prazo;
       document.getElementById("obs").value = obs;
-
       document.getElementById("row_index").value = row_index;
       document.getElementById("delete-btn").style.display = "inline-block";
     }
@@ -136,7 +138,6 @@
       document.getElementById("form-title").textContent = "➕ Incluir Novo Status";
       document.getElementById("status-form").reset();
       document.getElementById("dt_hr_status").value = new Date().toISOString().slice(0,16);
-      document.getElementById("dt_hr_prazo").value = "";
       document.getElementById("row_index").value = "";
       document.getElementById("delete-btn").style.display = "none";
     }
@@ -149,21 +150,6 @@
       const [hh, mm] = hora.split(":");
       return `${y}-${m}-${d}T${hh}:${mm}`;
     }
-
-    function atualizarPrazo() {
-      const inicio = document.getElementById("dt_hr_status").value;
-      const prazo = parseInt(document.getElementById("prazo").value || 0);
-      if (inicio) {
-        const dt = new Date(inicio);
-        dt.setDate(dt.getDate() + prazo);
-        document.getElementById("dt_hr_prazo").value =
-          dt.toLocaleDateString("pt-BR") + " " +
-          dt.toLocaleTimeString("pt-BR", {hour: "2-digit", minute:"2-digit"});
-      }
-    }
-
-    document.getElementById("dt_hr_status").addEventListener("change", atualizarPrazo);
-    document.getElementById("prazo").addEventListener("input", atualizarPrazo);
 
     document.getElementById("delete-btn").addEventListener("click", function() {
       const rowIndex = document.getElementById("row_index").value;

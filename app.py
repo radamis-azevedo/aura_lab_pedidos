@@ -71,6 +71,66 @@ def validar_usuario(fone, senha):
         if str(r.get("FONE_ADM")).strip() == str(fone).strip() and str(r.get("SENHA")).strip() == str(senha).strip():
             return r
     return None
+def parse_br_datetime(s):
+    """Aceita 'dd/mm/aaaa HH:MM' e também 'dd/mm/aaaa HH:MM:SS'."""
+    if not s:
+        return None
+    s = s.strip()
+    for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S"):
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            continue
+    return None
+
+def load_historico_with_row(nr_ped):
+    """Carrega o histórico do pedido com row_index REAL da planilha e datas parseadas."""
+    values = pedidos_status_ws.get_all_values()  # inclui cabeçalho
+    if not values:
+        return [], {}
+
+    header = values[0]
+    data_rows = values[1:]
+    hidx = {name: i for i, name in enumerate(header)}
+
+    def val(row, col):
+        i = hidx.get(col)
+        return row[i] if (i is not None and i < len(row)) else ""
+
+    historico = []
+    for excel_row_num, row in enumerate(data_rows, start=2):
+        if str(val(row, "NR_PED")).strip() == str(nr_ped):
+            dt_ini_txt = val(row, "DT_HR_STATUS")
+            historico.append({
+                "row_index": excel_row_num,
+                "STATUS_HIST": val(row, "STATUS_HIST"),
+                "DT_HR_STATUS": dt_ini_txt,
+                "DT_HR_STATUS_DT": parse_br_datetime(dt_ini_txt),
+                "PRAZO_STATUS": val(row, "PRAZO_STATUS"),
+                "DT_HR_PRAZO": val(row, "DT_HR_PRAZO"),
+                "OBS_STATUS": val(row, "OBS_STATUS"),
+                "USUARIO": val(row, "USUARIO"),
+                "DATA_HORA": val(row, "DATA_HORA"),
+            })
+    # Também devolve o dicionário de colunas (útil para outras operações)
+    return historico, hidx
+
+def get_status_requirements():
+    """
+    Lê a aba CADASTROS->STATUS (col A = STATUS, col B = PRAZO_OBRIG [S/N]).
+    Retorna dict: { "Nome do Status": True/False }
+    """
+    vals = status_ws.get_all_values()  # inclui cabeçalho
+    req = {}
+    if not vals:
+        return req
+    # Supõe: linha 1 = cabeçalho (STATUS | PRAZO_OBRIG)
+    for i, row in enumerate(vals[1:], start=2):
+        nome = (row[0] if len(row) > 0 else "").strip()
+        obr = (row[1] if len(row) > 1 else "").strip().upper()
+        if nome:
+            req[nome] = (obr == "S")
+    return req
 
 # =============================
 # FILTROS CUSTOMIZADOS
@@ -382,25 +442,84 @@ def status_pedido(nr_ped):
 @app.route("/status/<nr_ped>", methods=["POST"])
 def salvar_status(nr_ped):
     novo_status = request.form.get("status")
-    dt_hr_status = request.form.get("dt_hr_status")  # formato YYYY-MM-DDTHH:MM
+    dt_hr_status = request.form.get("dt_hr_status")  # YYYY-MM-DDTHH:MM
     prazo_status = request.form.get("prazo")
     obs_status = request.form.get("obs")
     usuario = session.get("usuario")
-    row_index = request.form.get("row_index")  # quando edição
+    row_index = request.form.get("row_index")
 
-    # Converte para datetime
-    dt_hr_status_dt = datetime.strptime(dt_hr_status, "%Y-%m-%dT%H:%M")
+    # Converte Data/Hora recebida
+    try:
+        dt_hr_status_dt = datetime.strptime(dt_hr_status, "%Y-%m-%dT%H:%M")
+    except Exception:
+        flash("⚠️ Data/Hora inválida.", "error")
+        return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
-    # Calcula data/hora do prazo (dias inteiros)
+    # Carrega histórico existente
+    values = pedidos_status_ws.get_all_values()
+    header = values[0] if values else []
+    data_rows = values[1:] if len(values) > 1 else []
+    hidx = {name: i for i, name in enumerate(header)}
+
+    def get_val(row, col):
+        idx = hidx.get(col)
+        return row[idx] if (idx is not None and idx < len(row)) else ""
+
+    historico = []
+    for excel_row_num, row in enumerate(data_rows, start=2):
+        if str(get_val(row, "NR_PED")).strip() == str(nr_ped):
+            dt_val = get_val(row, "DT_HR_STATUS")
+            try:
+                dt_val = datetime.strptime(dt_val, "%d/%m/%Y %H:%M")
+            except Exception:
+                dt_val = None
+            historico.append({
+                "row_index": excel_row_num,
+                "STATUS_HIST": get_val(row, "STATUS_HIST"),
+                "DT_HR_STATUS": dt_val
+            })
+
+    historico = sorted(historico, key=lambda x: x["DT_HR_STATUS"] or datetime.min)
+
+    # === Validações ===
+
+    # 1) Pedido Registrado não pode ser duplicado ou excluído
+    if novo_status.strip().lower() == "pedido registrado" and not row_index:
+        flash("⚠️ O status 'Pedido Registrado' já existe e não pode ser duplicado.", "error")
+        return redirect(url_for("status_pedido", nr_ped=nr_ped))
+
+    # 2) Ordem cronológica
+    if row_index:
+        row_index = int(row_index)
+        atual = next((h for h in historico if h["row_index"] == row_index), None)
+        idx = historico.index(atual) if atual else -1
+
+        if idx > 0 and dt_hr_status_dt < historico[idx-1]["DT_HR_STATUS"]:
+            flash(f"⚠️ Data/Hora Início deve ser >= do status anterior ({historico[idx-1]['STATUS_HIST']}).", "error")
+            return redirect(url_for("status_pedido", nr_ped=nr_ped))
+
+        if idx < len(historico)-1 and dt_hr_status_dt > historico[idx+1]["DT_HR_STATUS"]:
+            flash(f"⚠️ Data/Hora Início deve ser <= do status seguinte ({historico[idx+1]['STATUS_HIST']}).", "error")
+            return redirect(url_for("status_pedido", nr_ped=nr_ped))
+    else:
+        if historico and dt_hr_status_dt < historico[-1]["DT_HR_STATUS"]:
+            flash(f"⚠️ Data/Hora Início deve ser >= do último status ({historico[-1]['STATUS_HIST']}).", "error")
+            return redirect(url_for("status_pedido", nr_ped=nr_ped))
+
+    # 3) Prazo obrigatório (Planilha CADASTROS/STATUS)
+    obrigs = status_ws.get_all_records()
+    obrig_map = {str(r["STATUS"]).strip(): str(r.get("PRAZO_OBRIG", "N")).upper() for r in obrigs}
+    if obrig_map.get(novo_status, "N") == "S" and not prazo_status:
+        flash(f"⚠️ O status '{novo_status}' exige preenchimento do prazo (dias).", "error")
+        return redirect(url_for("status_pedido", nr_ped=nr_ped))
+
+    # === Persistência ===
     dias = int(prazo_status or 0)
     dt_hr_prazo = dt_hr_status_dt + timedelta(days=dias)
-
-    agora = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")  # sem segundos
+    agora = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
 
     if row_index:
-        # Atualiza linha existente: colunas B→H
-        row_index = int(row_index)
-        pedidos_status_ws.update(f"B{row_index}:H{row_index}", [[
+        pedidos_status_ws.update(f"B{row_index}", [[
             novo_status,
             dt_hr_status_dt.strftime("%d/%m/%Y %H:%M"),
             prazo_status,
@@ -409,8 +528,8 @@ def salvar_status(nr_ped):
             usuario,
             agora
         ]])
+        flash("✏️ Status atualizado com sucesso!", "success")
     else:
-        # Insere nova linha completa (A→H)
         pedidos_status_ws.append_row([
             nr_ped,
             novo_status,
@@ -421,18 +540,26 @@ def salvar_status(nr_ped):
             usuario,
             agora
         ])
+        flash("✅ Novo status incluído com sucesso!", "success")
 
-    flash("✅ Status atualizado com sucesso!", "success")
     return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
 @app.route("/status/<nr_ped>/delete/<int:row_index>", methods=["POST"])
 def excluir_status(nr_ped, row_index):
     try:
-        pedidos_status_ws.delete_rows(row_index)
-        flash("🗑️ Histórico excluído com sucesso!", "success")
+        row = pedidos_status_ws.row_values(row_index)  # lê a linha completa
+        status_nome = row[1].strip().lower() if len(row) > 1 else ""
+
+        if status_nome == "pedido registrado":
+            flash("⚠️ O status 'Pedido Registrado' não pode ser excluído.", "error")
+        else:
+            pedidos_status_ws.delete_rows(row_index)
+            flash("🗑️ Histórico excluído com sucesso!", "success")
+
     except Exception as e:
         app.logger.error(f"Erro ao excluir histórico: {e}")
         flash("❌ Erro ao excluir histórico.", "error")
+
     return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
 # =============================

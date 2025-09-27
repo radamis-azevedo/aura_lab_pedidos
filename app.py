@@ -398,7 +398,7 @@ def salvar_layout():
 # =============================
 @app.route("/status/<nr_ped>")
 def status_pedido(nr_ped):
-    # Carrega todas as linhas (inclui cabeçalho)
+    # Carrega todas as linhas da planilha de status (inclui cabeçalho)
     values = pedidos_status_ws.get_all_values()
     header = values[0] if values else []
     data_rows = values[1:] if len(values) > 1 else []
@@ -410,8 +410,9 @@ def status_pedido(nr_ped):
         idx = hidx.get(col)
         return row[idx] if (idx is not None and idx < len(row)) else ""
 
+    # 🔹 Monta lista do histórico
     historico = []
-    for excel_row_num, row in enumerate(data_rows, start=2):  # 2 = pula o cabeçalho
+    for excel_row_num, row in enumerate(data_rows, start=2):  # 2 = pula cabeçalho
         if str(get_val(row, "NR_PED")).strip() == str(nr_ped):
             historico.append({
                 "row_index": excel_row_num,  # linha REAL no Google Sheets
@@ -424,10 +425,16 @@ def status_pedido(nr_ped):
                 "DATA_HORA": get_val(row, "DATA_HORA"),
             })
 
-    # Opções de status
+    # 🔹 Carrega opções de status
     status_options = status_ws.col_values(1)
 
-    # Data/hora local para o input datetime-local
+    # 🔹 Carrega os itens do pedido
+    itens = [
+        i for i in itens_ws.get_all_records()
+        if str(i.get("NR_PED")).strip() == str(nr_ped)
+    ]
+
+    # 🔹 Data/hora local para preencher input datetime-local
     now_str = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%Y-%m-%dT%H:%M")
 
     return render_template(
@@ -436,7 +443,8 @@ def status_pedido(nr_ped):
         historico=historico,
         status_options=status_options,
         now_str=now_str,
-        usuario=session.get("usuario")
+        usuario=session.get("usuario"),
+        itens=itens  # <-- adiciona os itens do pedido
     )
 
 @app.route("/status/<nr_ped>", methods=["POST"])
@@ -455,7 +463,13 @@ def salvar_status(nr_ped):
         flash("⚠️ Data/Hora inválida.", "error")
         return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
-    # Carrega histórico existente
+    # Strings formatadas para salvar no Sheets
+    dt_hr_status_str = dt_hr_status_dt.strftime("%d/%m/%Y %H:%M")
+    dias = int(prazo_status or 0)
+    dt_hr_prazo_str = (dt_hr_status_dt + timedelta(days=dias)).strftime("%d/%m/%Y %H:%M")
+    agora_str = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
+
+    # === Validações (mantém o que você já tinha acima) ===
     values = pedidos_status_ws.get_all_values()
     header = values[0] if values else []
     data_rows = values[1:] if len(values) > 1 else []
@@ -481,9 +495,7 @@ def salvar_status(nr_ped):
 
     historico = sorted(historico, key=lambda x: x["DT_HR_STATUS"] or datetime.min)
 
-    # === Validações ===
-
-    # 1) Pedido Registrado não pode ser duplicado ou excluído
+    # 1) Pedido Registrado não pode ser duplicado
     if novo_status.strip().lower() == "pedido registrado" and not row_index:
         flash("⚠️ O status 'Pedido Registrado' já existe e não pode ser duplicado.", "error")
         return redirect(url_for("status_pedido", nr_ped=nr_ped))
@@ -506,7 +518,7 @@ def salvar_status(nr_ped):
             flash(f"⚠️ Data/Hora Início deve ser >= do último status ({historico[-1]['STATUS_HIST']}).", "error")
             return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
-    # 3) Prazo obrigatório (Planilha CADASTROS/STATUS)
+    # 3) Prazo obrigatório
     obrigs = status_ws.get_all_records()
     obrig_map = {str(r["STATUS"]).strip(): str(r.get("PRAZO_OBRIG", "N")).upper() for r in obrigs}
     if obrig_map.get(novo_status, "N") == "S" and not prazo_status:
@@ -514,35 +526,37 @@ def salvar_status(nr_ped):
         return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
     # === Persistência ===
-    dias = int(prazo_status or 0)
-    dt_hr_prazo = dt_hr_status_dt + timedelta(days=dias)
-    agora = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
-
     if row_index:
-        pedidos_status_ws.update(f"B{row_index}", [[
-            novo_status,
-            dt_hr_status_dt.strftime("%d/%m/%Y %H:%M"),
-            prazo_status,
-            dt_hr_prazo.strftime("%d/%m/%Y %H:%M"),
-            obs_status,
-            usuario,
-            agora
-        ]])
+        pedidos_status_ws.update(
+            f"B{row_index}:H{row_index}",
+            [[
+                novo_status,
+                dt_hr_status_str,
+                prazo_status,
+                dt_hr_prazo_str,
+                obs_status,
+                usuario,
+                agora_str
+            ]],
+            value_input_option="USER_ENTERED"
+        )
         flash("✏️ Status atualizado com sucesso!", "success")
     else:
         pedidos_status_ws.append_row([
             nr_ped,
             novo_status,
-            dt_hr_status_dt.strftime("%d/%m/%Y %H:%M"),
+            dt_hr_status_str,
             prazo_status,
-            dt_hr_prazo.strftime("%d/%m/%Y %H:%M"),
+            dt_hr_prazo_str,
             obs_status,
             usuario,
-            agora
-        ])
+            agora_str
+        ], value_input_option="USER_ENTERED")
         flash("✅ Novo status incluído com sucesso!", "success")
 
     return redirect(url_for("status_pedido", nr_ped=nr_ped))
+
+
 
 @app.route("/status/<nr_ped>/delete/<int:row_index>", methods=["POST"])
 def excluir_status(nr_ped, row_index):

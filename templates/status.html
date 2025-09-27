@@ -21,17 +21,34 @@
 
   <div class="status-container">
     <h2 class="status-header">Histórico do Pedido #{{ nr_ped }}</h2>
-	
-	{% with messages = get_flashed_messages(with_categories=true) %}
-	  {% if messages %}
-		<div class="flash-messages">
-		  {% for category, message in messages %}
-			<div class="flash {{ category }}">{{ message }}</div>
-		  {% endfor %}
-		</div>
-	  {% endif %}
-	{% endwith %}
-	
+
+    <!-- ITENS DO PEDIDO -->
+    <div class="table-wrapper">
+      <table class="itens-table">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Qtd</th>
+            <th>Cor</th>
+            <th>Valor Unitário</th>
+            <th>Total</th>
+            <th>Obs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in itens %}
+          <tr>
+            <td>{{ item.PRODUTO }}</td>
+            <td>{{ item.QTD_ITEM }}</td>
+            <td>{{ item.COR }}</td>
+            <td>{{ item.VLR_COB }}</td>
+            <td>{{ item.TOTAL_PROD }}</td>
+            <td>{{ item.OBS }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
     <!-- TABELA HISTÓRICO -->
     <div class="table-wrapper">
@@ -52,12 +69,12 @@
           <tr>
             <td class="edit-cell">
               <button class="edit-btn" 
-                onclick="editarHistorico('{{ h.STATUS_HIST }}','{{ h.DT_HR_STATUS }}','{{ h.PRAZO_STATUS }}','{{ h.OBS_STATUS }}','{{ h.row_index }}')">✏️</button>
+                onclick="editarHistorico('{{ h.STATUS_HIST }}','{{ h.DT_HR_STATUS }}','{{ h.PRAZO_STATUS }}','{{ h.DT_HR_PRAZO }}','{{ h.OBS_STATUS }}','{{ h.row_index }}')">✏️</button>
             </td>
             <td>{{ h.STATUS_HIST }}</td>
             <td>{{ h.DT_HR_STATUS }}</td>
             <td>{{ h.PRAZO_STATUS }}</td>
-            <td>{{ h.DT_HR_PRAZO }}</td>			
+            <td>{{ h.DT_HR_PRAZO }}</td>
             <td>{{ h.OBS_STATUS }}</td>
             <td>{{ h.USUARIO }} em {{ h.DATA_HORA }}</td>
           </tr>
@@ -66,7 +83,18 @@
       </table>
     </div>
 
-    <!-- FORMULÁRIO -->
+    <!-- 🔔 MENSAGENS DE FEEDBACK -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- FORMULÁRIO PRINCIPAL -->
     <form method="POST" class="status-form" id="status-form">
       <h3 id="form-title">➕ Incluir Novo Status</h3>
 
@@ -88,20 +116,18 @@
         </label>
       </div>
 
-		<!-- Linha 2: Data/Hora Início + Prazo -->
-		<div class="form-row prazo-row">
-		  <label>
-			Data/Hora Início:
-			<input type="datetime-local" name="dt_hr_status" id="dt_hr_status" value="{{ now_str }}">
-		  </label>
-		  <label>
-			Prazo (dias):
-			<input type="number" name="prazo" id="prazo" min="0" max="99">
-		  </label>
-		</div>
+      <!-- Linha 2: Data/Hora Início + Prazo -->
+      <div class="form-row prazo-row">
+        <label>
+          Data/Hora Início:
+          <input type="datetime-local" name="dt_hr_status" id="dt_hr_status" value="{{ now_str }}">
+        </label>
+        <label>
+          Prazo (dias):
+          <input type="number" name="prazo" id="prazo" min="0" max="99">
+        </label>
+      </div>
 
-
- 
       <!-- Linha 3: Observações -->
       <div class="form-row">
         <label style="flex:1">
@@ -112,8 +138,11 @@
 
       <button type="submit">Salvar</button>
       <button type="button" class="cancel-btn" onclick="resetarFormulario()">Cancelar</button>
-      <button type="button" id="delete-btn" class="delete-btn" style="display:none;">Excluir</button>
+      <button type="submit" form="delete-form" id="delete-btn" class="delete-btn" style="display:none;">Excluir</button>
     </form>
+
+    <!-- FORMULÁRIO OCULTO DE EXCLUSÃO -->
+    <form method="POST" id="delete-form" style="display:none;" onsubmit="return confirmarExclusao()"></form>
 
     <!-- BOTÃO VOLTAR NO RODAPÉ -->
     <div style="margin-top:20px; text-align:center;">
@@ -124,7 +153,7 @@
   <script>
     const nr_ped = "{{ nr_ped }}";  // expõe o número do pedido
 
-    function editarHistorico(status, dt_hr_status, prazo, obs, row_index) {
+    function editarHistorico(status, dt_hr_status, prazo, dt_hr_prazo, obs, row_index) {
       document.getElementById("form-title").textContent = "✏️ Editar Status";
       document.getElementById("status").value = status;
       document.getElementById("dt_hr_status").value = formatarInputDateTime(dt_hr_status);
@@ -132,6 +161,9 @@
       document.getElementById("obs").value = obs;
       document.getElementById("row_index").value = row_index;
       document.getElementById("delete-btn").style.display = "inline-block";
+
+      // configura a action do form oculto
+      document.getElementById("delete-form").action = `/status/${nr_ped}/delete/${row_index}`;
     }
 
     function resetarFormulario() {
@@ -140,6 +172,7 @@
       document.getElementById("dt_hr_status").value = new Date().toISOString().slice(0,16);
       document.getElementById("row_index").value = "";
       document.getElementById("delete-btn").style.display = "none";
+      document.getElementById("delete-form").action = "";
     }
 
     function formatarInputDateTime(str) {
@@ -151,15 +184,9 @@
       return `${y}-${m}-${d}T${hh}:${mm}`;
     }
 
-    document.getElementById("delete-btn").addEventListener("click", function() {
-      const rowIndex = document.getElementById("row_index").value;
-      if (!rowIndex) return;
-      if (confirm("Deseja realmente excluir este histórico?")) {
-        fetch(`/status/${nr_ped}/delete/${rowIndex}`, { method: "POST" })
-          .then(() => location.reload())
-          .catch(() => alert("❌ Erro ao excluir histórico."));
-      }
-    });
+    function confirmarExclusao() {
+      return confirm("⚠️ Deseja realmente excluir este histórico?");
+    }
 
     resetarFormulario();
   </script>

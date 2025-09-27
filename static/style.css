@@ -452,29 +452,53 @@ input:checked + .slider:before { transform: translateX(22px); }
   text-align: center;
 }
 
-/* ====== TABELA HISTÓRICO ====== */
+/* ====== TABELA HISTÓRICO (STATUS) ====== */
 .table-wrapper {
   width: 100%;
   overflow-x: auto;   /* rolagem horizontal no mobile */
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .status-table {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
-  font-size: 0.85em;
-  min-width: 600px;  /* garante que a tabela não “quebre” feio no mobile */
+  font-size: 1em;     /* um pouco maior que itens */
+  min-width: 600px;
+  border: 2px solid #ccc;   /* destaque extra */
 }
 
 /* Células */
 .status-table th,
 .status-table td {
-  border: 1px solid #ddd;
-  padding: 6px 8px;
+  border: 1px solid #ccc;
+  padding: 7px 10px;
   text-align: left;
-  white-space: nowrap; /* mantém cada célula em uma linha única */
+  white-space: nowrap;
 }
+
+.status-table th {
+  background: #e9ecef;   /* cinza mais forte */
+  font-weight: bold;
+  color: #333;
+  text-transform: uppercase; /* dá mais destaque */
+  font-size: 0.9em;     /* cabeçalho levemente maior */
+}
+
+.status-table td {
+  font-size: 1em;
+}
+
+/* 🔥 Apenas estas colunas ficam em negrito */
+.status-table td:nth-child(2),   /* Status */
+.status-table td:nth-child(3){   /* Data/Hora Início */
+ font-weight: bold;
+}
+
+.status-table tr:hover {
+  background: #f5faff;   /* leve azul no hover */
+}
+
 
 /* Cabeçalho */
 .status-table th {
@@ -507,12 +531,12 @@ input:checked + .slider:before { transform: translateX(22px); }
   padding: 15px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .status-form h3 {
   margin-top: 0;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   text-align: left;
 }
 
@@ -538,8 +562,34 @@ input:checked + .slider:before { transform: translateX(22px); }
 }
 
 .form-row small {
-  font-size: 12px;
+  font-size: 15px;
   color: #666;
+}
+
+/* ====== TABELA DE ITENS DO PEDIDO (STATUS) ====== */
+.itens-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 0.60em;   /* letras menores que a tabela de status */
+  min-width: 500px;
+}
+
+.itens-table th,
+.itens-table td {
+  border: 1px solid #ddd;
+  padding: 5px 6px;
+  text-align: left;
+}
+
+.itens-table th {
+  background: #f9f9f9;
+  font-weight: 600;
+  color: #555;
+}
+
+.itens-table tr:hover {
+  background: #fdfdfd;
 }
 
 
@@ -616,8 +666,8 @@ input:checked + .slider:before { transform: translateX(22px); }
 }
 
 .status-form .form-row.prazo-row label:last-child {
-  flex: 0 0 70px;           /* Prazo (dias) fica com largura fixa */
-  max-width: 70px;          /* garante que não aumente além disso */
+  flex: 0 0 60px;           /* Prazo (dias) fica com largura fixa */
+  max-width: 60px;          /* garante que não aumente além disso */
 }
 .flash-messages {
   margin: 10px 0;
@@ -647,3 +697,4 @@ input:checked + .slider:before { transform: translateX(22px); }
   color: #856404;
   border: 1px solid #ffeeba;
 }
+

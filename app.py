@@ -398,7 +398,7 @@ def novo_pedido():
                     "",  # DT_HR_PRAZO calculado
                     "",  # OBS_STATUS (inicial vazio)
                     usuario,
-                    datetime.now().strftime("%d/%m/%Y %H:%M")
+                    datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
                 ]]
             })
 
@@ -679,7 +679,7 @@ def salvar_status(nr_ped):
             return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
     # 3) Prazo obrigatório
-    obrigs = status_ws.get_all_records()
+    obrigs = cad_status_ws.get_all_records()
     obrig_map = {str(r["STATUS"]).strip(): str(r.get("PRAZO_OBRIG", "N")).upper() for r in obrigs}
     if obrig_map.get(novo_status, "N") == "S" and not prazo_status:
         flash(f"⚠️ O status '{novo_status}' exige preenchimento do prazo (dias).", "error")

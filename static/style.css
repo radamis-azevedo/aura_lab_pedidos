@@ -744,7 +744,15 @@ input:checked + .slider:before { transform: translateX(22px); }
   font-weight: bold;      /* destaque no campo de valor */
 }
 
-.form-row.same-line input {
-  text-align: right;      /* alinhamento dos valores numéricos */
+/* Somente inputs numéricos alinhados à direita */
+.form-row.same-line input[type="number"],
+.form-row.same-line input.num {
+  text-align: right;
+  font-weight: bold;
 }
 
+/* Inputs de texto (como Cor e Observações) alinhados à esquerda */
+.form-row.same-line input[type="text"]:not(.num) {
+  text-align: left;
+  font-weight: normal;
+}

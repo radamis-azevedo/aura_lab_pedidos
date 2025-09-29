@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, session
 from babel.numbers import format_currency
 from babel.dates import format_date
 from datetime import datetime, date, timezone, timedelta
@@ -6,7 +6,10 @@ from zoneinfo import ZoneInfo
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from collections import defaultdict
+import pytz
 import os
+import json
+
 
 # =============================
 # CONFIGURAÇÃO FLASK
@@ -30,8 +33,9 @@ itens_ws = client.open_by_key(SHEET_ID_PEDIDOS).worksheet("PEDIDOS_ITENS")
 custos_ws = client.open_by_key(SHEET_ID_PEDIDOS).worksheet("PEDIDOS_CUSTOS")
 usuarios_ws = client.open_by_key(SHEET_ID_CADASTROS).worksheet("ADM_BOT")
 clientes_ws = client.open_by_key(SHEET_ID_CADASTROS).worksheet("CLIENTES")
-pedidos_status_ws = client.open_by_key(SHEET_ID_PEDIDOS).worksheet("PEDIDOS_STATUS")
-status_ws = client.open_by_key(SHEET_ID_CADASTROS).worksheet("STATUS")
+produtos_ws = client.open_by_key(SHEET_ID_CADASTROS).worksheet("PRODUTOS")
+status_ws = client.open_by_key(SHEET_ID_PEDIDOS).worksheet("PEDIDOS_STATUS")
+cad_status_ws = client.open_by_key(SHEET_ID_CADASTROS).worksheet("STATUS")
 
 # =============================
 # FUNÇÕES AUXILIARES
@@ -85,7 +89,7 @@ def parse_br_datetime(s):
 
 def load_historico_with_row(nr_ped):
     """Carrega o histórico do pedido com row_index REAL da planilha e datas parseadas."""
-    values = pedidos_status_ws.get_all_values()  # inclui cabeçalho
+    values = status_ws.get_all_values()  # inclui cabeçalho
     if not values:
         return [], {}
 
@@ -277,6 +281,162 @@ def index():
         usuario=session.get("usuario"),
         ordem_salva=ordem_salva.split(",") if ordem_salva else []
     )
+    
+# Ajuste o fuso horário para Cuiabá
+tz = pytz.timezone("America/Cuiaba")
+
+@app.route("/novo_pedido", methods=["GET", "POST"])
+def novo_pedido():
+    try:
+        if request.method == "POST":
+            # Dados do formulário
+            dt_pedido = request.form.get("dt_pedido", "").strip()
+            cliente = request.form.get("cliente", "").strip()
+            paciente = request.form.get("paciente", "").strip()
+            obs_ped = request.form.get("obs_ped", "").strip()
+            usuario = session.get("usuario", "desconhecido")
+
+            # aqui já converte
+            dt_pedido_fmt = ""
+            if dt_pedido:
+                try:
+                    dt_obj = datetime.strptime(dt_pedido, "%Y-%m-%dT%H:%M")
+                    dt_pedido_fmt = dt_obj.strftime("%d/%m/%Y %H:%M")
+                except Exception:
+                    dt_pedido_fmt = dt_pedido
+
+            # JSONs de itens e custos
+            itens_json = request.form.get("itens_json", "[]")
+            custos_json = request.form.get("custos_json", "[]")
+
+            try:
+                itens = json.loads(itens_json)
+                custos = json.loads(custos_json)
+            except Exception:
+                flash("❌ Erro ao processar itens/custos.", "error")
+                return redirect(url_for("novo_pedido"))
+
+            # === Validações ===
+            if not cliente or not paciente:
+                flash("⚠️ Cliente e Paciente são obrigatórios.", "error")
+                return redirect(url_for("novo_pedido"))
+
+            if not itens or len(itens) == 0:
+                flash("⚠️ O pedido precisa ter pelo menos 1 item.", "error")
+                return redirect(url_for("novo_pedido"))
+
+            # === Define novo NR_PED ===
+            valores = pedidos_ws.col_values(2)  # Coluna B: NR_PED
+            nr_ped = max([int(v) for v in valores[1:] if v.isdigit()] or [0]) + 1
+
+            # === Descobrir as próximas linhas em cada aba ===
+            linha_pedidos = len(pedidos_ws.get_all_values()) + 1
+            linha_itens = len(itens_ws.get_all_values()) + 1
+            linha_custos = len(custos_ws.get_all_values()) + 1
+            linha_status = len(status_ws.get_all_values()) + 1
+
+            # === Montar batch_update ===
+            body = {
+                "valueInputOption": "USER_ENTERED",
+                "data": []
+            }
+
+            # --- Aba PEDIDOS ---
+            body["data"].append({
+                "range": f"PEDIDOS!B{linha_pedidos}:M{linha_pedidos}",
+                "values": [[
+                    nr_ped, cliente, paciente,    # B, C, D
+                    "", "", "", "", "", "", "", "",  # E até L (calculadas)
+                    obs_ped                      # M: OBS_PED
+                ]]
+            })
+
+            # --- Aba PEDIDOS_ITENS ---
+            if itens:
+                body["data"].append({
+                    "range": f"PEDIDOS_ITENS!A{linha_itens}:H{linha_itens+len(itens)-1}",
+                    "values": [
+                        [
+                            nr_ped,
+                            item["produto"],
+                            item["qtde"],
+                            item.get("cor", ""),
+                            "",  # VLR_CAT (calculado)
+                            item["valor"],
+                            "",  # TOTAL_PRODUTO (calculado)
+                            item.get("obs", "")
+                        ]
+                        for item in itens
+                    ]
+                })
+
+            # --- Aba PEDIDOS_CUSTOS ---
+            if custos:
+                body["data"].append({
+                    "range": f"PEDIDOS_CUSTOS!A{linha_custos}:F{linha_custos+len(custos)-1}",
+                    "values": [
+                        [
+                            nr_ped,
+                            custo["desc"],
+                            custo["qtd"],
+                            custo["valor"],
+                            "",  # VLR_TOTAL_CUSTO (calculado)
+                            custo.get("obs", "")
+                        ]
+                        for custo in custos
+                    ]
+                })
+
+            # --- Aba PEDIDOS_STATUS ---
+            body["data"].append({
+                "range": f"PEDIDOS_STATUS!A{linha_status}:H{linha_status}",
+                "values": [[
+                    nr_ped,
+                    "Pedido Registrado",
+                    dt_pedido_fmt,
+                    1,
+                    "",  # DT_HR_PRAZO calculado
+                    "",  # OBS_STATUS (inicial vazio)
+                    usuario,
+                    datetime.now().strftime("%d/%m/%Y %H:%M")
+                ]]
+            })
+
+            # --- Executar batch_update ---
+            pedidos_ws.spreadsheet.values_batch_update(body)
+
+            flash(f"✅ Pedido #{nr_ped} cadastrado com sucesso! Deseja incluir outro?", "success")
+            return redirect(url_for("novo_pedido"))
+
+        # === GET ===
+        # Carrega clientes (coluna B)
+        clientes = [row[1] for row in clientes_ws.get_all_values()[1:] if len(row) > 1 and row[1]]
+        clientes.sort()
+
+        # Carrega produtos (coluna B + valor catálogo da coluna C)
+        produtos_rows = produtos_ws.get_all_values()[1:]
+        produtos = [
+            {"nome": row[1], "vlr_cat": row[2].replace("R$", "").strip() if len(row) > 2 else ""}
+            for row in produtos_rows if len(row) > 1 and row[1]
+        ]
+        produtos.sort(key=lambda x: x["nome"])
+
+        # Data/hora atual para o input datetime-local
+        agora = datetime.now(pytz.timezone("America/Cuiaba"))
+        agora_str = agora.strftime("%Y-%m-%dT%H:%M")
+
+        return render_template(
+            "novo_pedido.html",
+            usuario=session.get("usuario"),
+            clientes=clientes,
+            produtos=produtos,
+            agora_str=agora_str
+        )
+
+    except Exception as e:
+        app.logger.error(f"Erro ao carregar novo pedido: {e}")
+        flash("❌ Erro ao processar novo pedido.", "error")
+        return redirect(url_for("index"))
 
 # =============================
 # DEMAIS ROTAS (detalhes, areceber, itens)
@@ -399,7 +559,7 @@ def salvar_layout():
 @app.route("/status/<nr_ped>")
 def status_pedido(nr_ped):
     # Carrega todas as linhas da planilha de status (inclui cabeçalho)
-    values = pedidos_status_ws.get_all_values()
+    values = status_ws.get_all_values()
     header = values[0] if values else []
     data_rows = values[1:] if len(values) > 1 else []
 
@@ -426,7 +586,7 @@ def status_pedido(nr_ped):
             })
 
     # 🔹 Carrega opções de status
-    status_options = status_ws.col_values(1)
+    status_options = cad_status_ws.col_values(1)
 
     # 🔹 Carrega os itens do pedido
     itens = [
@@ -470,7 +630,7 @@ def salvar_status(nr_ped):
     agora_str = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
 
     # === Validações (mantém o que você já tinha acima) ===
-    values = pedidos_status_ws.get_all_values()
+    values = status_ws.get_all_values()
     header = values[0] if values else []
     data_rows = values[1:] if len(values) > 1 else []
     hidx = {name: i for i, name in enumerate(header)}
@@ -527,7 +687,7 @@ def salvar_status(nr_ped):
 
     # === Persistência ===
     if row_index:
-        pedidos_status_ws.update(
+        status_ws.update(
             f"B{row_index}:H{row_index}",
             [[
                 novo_status,
@@ -542,7 +702,7 @@ def salvar_status(nr_ped):
         )
         flash("✏️ Status atualizado com sucesso!", "success")
     else:
-        pedidos_status_ws.append_row([
+        status_ws.append_row([
             nr_ped,
             novo_status,
             dt_hr_status_str,
@@ -561,13 +721,13 @@ def salvar_status(nr_ped):
 @app.route("/status/<nr_ped>/delete/<int:row_index>", methods=["POST"])
 def excluir_status(nr_ped, row_index):
     try:
-        row = pedidos_status_ws.row_values(row_index)  # lê a linha completa
+        row = status_ws.row_values(row_index)  # lê a linha completa
         status_nome = row[1].strip().lower() if len(row) > 1 else ""
 
         if status_nome == "pedido registrado":
             flash("⚠️ O status 'Pedido Registrado' não pode ser excluído.", "error")
         else:
-            pedidos_status_ws.delete_rows(row_index)
+            status_ws.delete_rows(row_index)
             flash("🗑️ Histórico excluído com sucesso!", "success")
 
     except Exception as e:

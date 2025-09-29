@@ -698,3 +698,53 @@ input:checked + .slider:before { transform: translateX(22px); }
   border: 1px solid #ffeeba;
 }
 
+/* Linha que mantém campos lado a lado até no mobile */
+.same-line {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.same-line label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Botões menores (+) */
+.add-btn {
+  padding: 4px 8px !important;
+  font-size: 0.85em !important;
+  height: fit-content;
+  align-self: flex-end;
+}
+
+/* Fonte maior nas tabelas de itens e custos */
+.big-table {
+  font-size: 0.9em;
+}
+.big-table th, 
+.big-table td {
+  padding: 6px 8px;
+}
+
+/* Linha de campos compactos (Cor, Qtd, Valor) */
+.form-row.same-line {
+  display: flex;
+  flex-wrap: wrap;        /* permite quebrar se não couber */
+  gap: 8px;
+}
+
+.form-row.same-line label {
+  flex: 1;                /* divide espaço igualmente */
+  min-width: 50px;        /* Cor e Qtd não ficam menores que 50px */
+}
+
+.form-row.same-line label:last-child {
+  min-width: 80px;        /* Valor não fica menor que 80px */
+  font-weight: bold;      /* destaque no campo de valor */
+}
+
+.form-row.same-line input {
+  text-align: right;      /* alinhamento dos valores numéricos */
+}
+

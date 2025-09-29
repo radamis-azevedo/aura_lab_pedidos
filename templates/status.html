@@ -43,7 +43,7 @@
             <td>{{ item.COR }}</td>
             <td>{{ item.VLR_COB }}</td>
             <td>{{ item.TOTAL_PROD }}</td>
-            <td>{{ item.OBS }}</td>
+            <td>{{ item.OBS_ITEM }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -165,11 +165,39 @@
       // configura a action do form oculto
       document.getElementById("delete-form").action = `/status/${nr_ped}/delete/${row_index}`;
     }
+	
+	function getDateTimeCuiaba() {
+	  // Cria data atual no fuso de Cuiabá
+	  const now = new Date();
+	  
+	  // Converte para string local (pt-BR), sem segundos
+	  const options = {
+		timeZone: "America/Cuiaba",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit"
+	  };
+
+	  const formatter = new Intl.DateTimeFormat("pt-BR", options);
+	  const parts = formatter.formatToParts(now);
+
+	  const y = parts.find(p => p.type === "year").value;
+	  const m = parts.find(p => p.type === "month").value;
+	  const d = parts.find(p => p.type === "day").value;
+	  const hh = parts.find(p => p.type === "hour").value.padStart(2,"0");
+	  const mm = parts.find(p => p.type === "minute").value.padStart(2,"0");
+
+	  // Retorna no formato esperado pelo input datetime-local
+	  return `${y}-${m}-${d}T${hh}:${mm}`;
+	}
+
 
     function resetarFormulario() {
       document.getElementById("form-title").textContent = "➕ Incluir Novo Status";
       document.getElementById("status-form").reset();
-      document.getElementById("dt_hr_status").value = new Date().toISOString().slice(0,16);
+      document.getElementById("dt_hr_status").value = getDateTimeCuiaba();
       document.getElementById("row_index").value = "";
       document.getElementById("delete-btn").style.display = "none";
       document.getElementById("delete-form").action = "";

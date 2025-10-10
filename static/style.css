@@ -756,3 +756,203 @@ input:checked + .slider:before { transform: translateX(22px); }
   text-align: left;
   font-weight: normal;
 }
+
+/* ========================
+   PÁGINA DE PAGAMENTO
+======================== */
+.pagamento-container {
+  max-width: 600px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 20px 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.pagamento-container h2 {
+  color: #007bff;
+  font-size: 1.4em;
+  margin-bottom: 20px;
+}
+
+.pagamento-container p {
+  font-size: 1em;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.pagamento-container form {
+  margin-top: 10px;
+}
+
+.pagamento-container label {
+  display: block;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #444;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.pagamento-container input[type="datetime-local"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95em;
+  box-sizing: border-box;
+}
+
+.pagamento-container .btn {
+  margin-top: 15px;
+  width: 100%;
+  background: #28a745;
+  font-weight: bold;
+  font-size: 0.95em;
+}
+
+.pagamento-container .btn:hover {
+  background: #218838;
+}
+
+.pagamento-container .cancel-btn {
+  margin-top: 15px;
+  width: 100%;
+  background: #dc3545;
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.95em;
+}
+
+.pagamento-container .cancel-btn:hover {
+  background: #b02a37;
+}
+
+/* Rodapé */
+.pagamento-container .back-btn {
+  display: inline-block;
+  margin-top: 25px;
+  background: #6c757d;
+  color: #fff;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  transition: background .2s;
+}
+
+.pagamento-container .back-btn:hover {
+  background: #5a6268;
+}
+
+/* Mensagens de status (se desejar usar flash messages coloridas futuramente) */
+.flash-success {
+  color: #155724;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.flash-error {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+ 
+/* === Efeito de entrada suave === */
+body {
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* === CARD "Por Status" === */
+.card-status {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+}
+
+.status-grupo-titulo {
+  font-size: 1.05em;
+  font-weight: 600;
+  color: #007bff;
+  margin: 10px 0;
+}
+
+.status-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+  font-size: 0.95em;
+}
+
+.status-table th, .status-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.status-table th {
+  background: #f4f6f8;
+  font-weight: 600;
+  color: #555;
+}
+
+.status-table td:nth-child(2), 
+.status-table td:nth-child(3) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.btn-detalhes {
+  background: #007bff;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.9em;
+  transition: background 0.2s ease;
+}
+
+.btn-detalhes:hover {
+  background: #0056b3;
+}
+
+.status-vazio td {
+  color: #999;
+  font-style: italic;
+}
+
+
+/* ====== Ajustes visuais do Card "Por Status" ====== */
+#card-status h2 {
+  margin-bottom: 8px;
+}
+
+#card-status .grupo-titulo {
+  font-size: 0.8em;
+  font-weight: 300;
+  margin: 20px 0px 0px 0px;
+  border-radius: 8px;
+  display: inline-block;
+  letter-spacing: 0.3px;
+}
+
+
+/* ajusta o espaçamento da lista abaixo do título */
+#card-status ul.list {
+  margin-top: 5px;
+}

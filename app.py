@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash, session, jsonify
 from babel.numbers import format_currency
 from babel.dates import format_date
 from datetime import datetime, date, timezone, timedelta
@@ -9,6 +9,7 @@ from collections import defaultdict
 import pytz
 import os
 import json
+import unicodedata, re
 
 
 # =============================
@@ -75,6 +76,7 @@ def validar_usuario(fone, senha):
         if str(r.get("FONE_ADM")).strip() == str(fone).strip() and str(r.get("SENHA")).strip() == str(senha).strip():
             return r
     return None
+
 def parse_br_datetime(s):
     """Aceita 'dd/mm/aaaa HH:MM' e também 'dd/mm/aaaa HH:MM:SS'."""
     if not s:
@@ -86,6 +88,52 @@ def parse_br_datetime(s):
         except Exception:
             continue
     return None
+
+def to_input_datetime(value: str) -> str:
+    """
+    Converte datas vindas do Sheets para o formato aceitável pelo <input type="datetime-local"> (YYYY-MM-DDTHH:MM).
+    Aceita:
+      - 'dd/mm/yyyy HH:MM' ou 'dd/mm/yyyy HH:MM:SS'
+      - 'yyyy-mm-ddTHH:MM' (já pronto)
+      - 'yyyy-mm-dd HH:MM' (com espaço)
+      - 'dd/mm/yyyy' (sem hora -> assume 00:00)
+    Retorna '' se não der para converter.
+    """
+    s = (value or "").strip()
+    if not s:
+        return ""
+    # Já está em ISO?
+    if "-" in s and ("T" in s or " " in s):
+        return s.replace(" ", "T")[:16]
+
+    # Tenta BR com hora
+    dt = parse_br_datetime(s)
+    if dt:
+        return dt.strftime("%Y-%m-%dT%H:%M")
+
+    # Tenta só data BR
+    try:
+        from datetime import datetime
+        dt2 = datetime.strptime(s, "%d/%m/%Y")
+        return dt2.strftime("%Y-%m-%dT%H:%M")
+    except Exception:
+        return ""
+
+def to_float_safe(v):
+    """
+    Converte valores vindos da planilha (ex: 'R$ 1.234,56') em float.
+    Se vier vazio, 'None', 'undefined', etc., retorna 0.0.
+    """
+    try:
+        if v is None:
+            return 0.0
+        s = str(v).strip()
+        # remove R$, espaços e separadores de milhar
+        s = s.replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
+        return float(s) if s else 0.0
+    except Exception:
+        return 0.0
+
 
 def load_historico_with_row(nr_ped):
     """Carrega o histórico do pedido com row_index REAL da planilha e datas parseadas."""
@@ -199,39 +247,60 @@ def ping():
     return "pong", 200
     
 
+# =============================
+# ROTA PRINCIPAL: DASHBOARD /INDEX
+# =============================
+import unicodedata, re
+from collections import defaultdict
+from datetime import date
 
-# =============================
-# ROTAS PRINCIPAIS
-# =============================
+def slugify_status(s: str) -> str:
+    s = str(s or "").strip().lower()
+    # remove acentos
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    # troca espaços e barras por hífen e limpa caracteres estranhos
+    s = re.sub(r"[\s/]+", "-", s)
+    s = re.sub(r"[^a-z0-9\-]", "", s)
+    return s
+
 @app.route("/")
 def index():
-    pedidos = pedidos_ws.get_all_records()
-    clientes = clientes_ws.get_all_records()
     hoje = date.today()
 
+    # 1) Carregamento único das abas
+    pedidos = pedidos_ws.get_all_records()
+    clientes = clientes_ws.get_all_records()
+    cad_status = cad_status_ws.get_all_records()
+
+    # 2) Índices auxiliares
+    clientes_dict = {str(c.get("NOME_CLI")).strip(): c for c in clientes}
+    prazo_map = {str(s.get("STATUS")).strip(): str(s.get("PRAZO_OBRIG", "N")).strip().upper()
+                 for s in cad_status}
+    ord_map = {str(s.get("STATUS")).strip(): int(str(s.get("ORD_CARD", "999")) or "999")
+               for s in cad_status}
+
+    # 3) Acumuladores dos cards
     total_receber_qtd = 0
     total_receber_val = 0.0
-    prazos = {"atrasados": {"qtd": 0, "val": 0.0},
-              "hoje": {"qtd": 0, "val": 0.0},
-              "futuros": {"qtd": 0, "val": 0.0}}
-    status_map = defaultdict(lambda: {"qtd": 0, "val": 0.0})
-
-    # Dicionário rápido de clientes
-    clientes_dict = {str(c.get("NOME_CLI")).strip(): c for c in clientes}
-
-    # Mapa de devedores (formatado)
     clientes_devedores = {}
+    prazos = {
+        "atrasados": {"qtd": 0, "val": 0.0},
+        "hoje": {"qtd": 0, "val": 0.0},
+        "futuros": {"qtd": 0, "val": 0.0},
+    }
+    resumo_status = defaultdict(lambda: {"qtd": 0, "val": 0.0})
 
+    # 4) Loop dos pedidos
     for p in pedidos:
-        val = parse_float(p.get("VLR_PED"))
-        status_original = p.get("STATUS") or "Indefinido"
-        status = norm_status(status_original)
+        cliente_nome = str(p.get("CLIENTE") or "").strip()
+        status = str(p.get("STATUS") or "Indefinido").strip()
         pago = is_paid(p.get("PAGO"))
         prazo = parse_date(p.get("DT_PRAZO"))
-        cliente_nome = str(p.get("CLIENTE")).strip()
+        val = parse_float(p.get("VLR_PED"))
 
-        # Card: A Receber
-        if status == "entregue" and not pago:
+        # 💰 A receber (Entregue e não pago)
+        if status.lower() == "entregue" and not pago:
             total_receber_qtd += 1
             total_receber_val += val
 
@@ -246,8 +315,8 @@ def index():
                 clientes_devedores[titulo] = {"titulo": titulo, "valor": 0.0}
             clientes_devedores[titulo]["valor"] += val
 
-        # Card: Prazos (somente não entregues)
-        if prazo and status != "entregue":
+        # ⏳ Prazos (somente não entregues)
+        if prazo and status.lower() != "entregue":
             if prazo < hoje:
                 prazos["atrasados"]["qtd"] += 1
                 prazos["atrasados"]["val"] += val
@@ -258,189 +327,191 @@ def index():
                 prazos["futuros"]["qtd"] += 1
                 prazos["futuros"]["val"] += val
 
-        # Card: Status (somente não entregues)
-        if status != "entregue":
-            status_map[status_original]["qtd"] += 1
-            status_map[status_original]["val"] += val
+        # 📊 Por Status (resumo apenas dos status que existem nos pedidos)
+        resumo_status[status]["qtd"] += 1
+        resumo_status[status]["val"] += val
 
-    # Recupera ordem salva do usuário (layout dos cards)
-    registros = usuarios_ws.get_all_records()
+    # 5) Monta grupos “Com Prazo” e “Aguardando...”, já com ORD_CARD e SLUG
+    cards_por_status = {
+        "Com Prazo": [],
+        "Aguardando Cliente/Dentista": []
+    }
+
+    for st, dados in resumo_status.items():
+        if dados["qtd"] == 0:
+            continue
+        grupo = "Com Prazo" if prazo_map.get(st, "N") == "S" else "Aguardando Cliente/Dentista"
+        cards_por_status[grupo].append({
+            "status": st,
+            "qtd": dados["qtd"],
+            "val": dados["val"],
+            "ord": ord_map.get(st, 999),
+            "slug": slugify_status(st),
+        })
+
+    # Ordena por ORD_CARD (ord) e depois por nome (tie-break)
+    for g in cards_por_status:
+        cards_por_status[g].sort(key=lambda x: (x["ord"], x["status"].lower()))
+
+    # 6) Ordem de cards salva pelo usuário
     ordem_salva = None
-    for r in registros:
+    for r in usuarios_ws.get_all_records():
         if r.get("NOME") == session.get("usuario"):
             ordem_salva = r.get("LAYOUT_CARDS")
             break
 
     return render_template(
         "index.html",
+        usuario=session.get("usuario"),
         total_receber_qtd=total_receber_qtd,
         total_receber_val=total_receber_val,
         clientes_devedores=clientes_devedores,
         prazos=prazos,
-        status_map=status_map,
-        usuario=session.get("usuario"),
+        cards_por_status=cards_por_status,
         ordem_salva=ordem_salva.split(",") if ordem_salva else []
     )
+
     
 # Ajuste o fuso horário para Cuiabá
 tz = pytz.timezone("America/Cuiaba")
+
+# =====================================================
+# ROTA: NOVO PEDIDO (corrigida e padronizada)
+# =====================================================
+from datetime import datetime  # ✅ mover para o topo do arquivo
 
 @app.route("/novo_pedido", methods=["GET", "POST"])
 def novo_pedido():
     try:
         if request.method == "POST":
-            # Dados do formulário
-            dt_pedido = request.form.get("dt_pedido", "").strip()
             cliente = request.form.get("cliente", "").strip()
             paciente = request.form.get("paciente", "").strip()
             obs_ped = request.form.get("obs_ped", "").strip()
-            usuario = session.get("usuario", "desconhecido")
+            itens = json.loads(request.form.get("itens_json", "[]"))
+            custos = json.loads(request.form.get("custos_json", "[]"))
 
-            # aqui já converte
-            dt_pedido_fmt = ""
-            if dt_pedido:
-                try:
-                    dt_obj = datetime.strptime(dt_pedido, "%Y-%m-%dT%H:%M")
-                    dt_pedido_fmt = dt_obj.strftime("%d/%m/%Y %H:%M")
-                except Exception:
-                    dt_pedido_fmt = dt_pedido
+            # ==============================
+            # 🆕 GERA NOVO NÚMERO DE PEDIDO
+            # ==============================
+            pedidos_data = pedidos_ws.get_all_records()
+            if pedidos_data:
+                ultimo_ped = max([int(p["NR_PED"]) for p in pedidos_data if str(p.get("NR_PED")).isdigit()] or [0])
+            else:
+                ultimo_ped = 0
+            novo_nr_ped = ultimo_ped + 1
 
-            # JSONs de itens e custos
-            itens_json = request.form.get("itens_json", "[]")
-            custos_json = request.form.get("custos_json", "[]")
+            # ==============================
+            # 🗓️ USUÁRIO E DATA/HORA ATUAL
+            # ==============================
+            usuario = session.get("usuario")
+            dt_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
 
+            # ==============================
+            # 🧾 INSERE NA ABA PEDIDOS
+            # ==============================
+            pedidos_ws.append_row([
+                "",  # STATUS (calculado)
+                novo_nr_ped, cliente, paciente,
+                "", "", "", "",  # DT_PED, DT_PRAZO, DT_ENTREG, VLR_PED                
+                "", "", "", "",  # PAGO, DT_RECEB, CUST_TERC, VLR_FINAL
+                obs_ped
+            ], value_input_option="USER_ENTERED")
+
+            # ==============================
+            # 📦 INSERE ITENS
+            # ==============================
+            for item in itens:
+                itens_ws.append_row([
+                    novo_nr_ped,
+                    item.get("produto", ""),
+                    item.get("qtde", ""),
+                    item.get("cor", ""),
+                    "",                       # VLR_CAT (calculado)
+                    item.get("valor", ""),    # VLR_COB
+                    "",                       # TOTAL_PROD (calculado)
+                    item.get("obs", "")
+                ], value_input_option="USER_ENTERED")
+
+            # ==============================
+            # 💰 INSERE CUSTOS
+            # ==============================
+            for custo in custos:
+                custos_ws.append_row([
+                    novo_nr_ped,
+                    custo.get("desc", ""),
+                    custo.get("qtd", ""),
+                    custo.get("valor", ""),
+                    "",                       # VLR_TOT_CUSTO (calculado)
+                    custo.get("obs", "")
+                ], value_input_option="USER_ENTERED")
+
+            # ==============================
+            # 📋 REGISTRA STATUS INICIAL
+            # ==============================
+            dt_pedido = request.form.get("dt_pedido", "").strip()
             try:
-                itens = json.loads(itens_json)
-                custos = json.loads(custos_json)
-            except Exception:
-                flash("❌ Erro ao processar itens/custos.", "error")
-                return redirect(url_for("novo_pedido"))
-
-            # === Validações ===
-            if not cliente or not paciente:
-                flash("⚠️ Cliente e Paciente são obrigatórios.", "error")
-                return redirect(url_for("novo_pedido"))
-
-            if not itens or len(itens) == 0:
-                flash("⚠️ O pedido precisa ter pelo menos 1 item.", "error")
-                return redirect(url_for("novo_pedido"))
-
-            # === Define novo NR_PED ===
-            valores = pedidos_ws.col_values(2)  # Coluna B: NR_PED
-            nr_ped = max([int(v) for v in valores[1:] if v.isdigit()] or [0]) + 1
-
-            # === Descobrir as próximas linhas em cada aba ===
-            linha_pedidos = len(pedidos_ws.get_all_values()) + 1
-            linha_itens = len(itens_ws.get_all_values()) + 1
-            linha_custos = len(custos_ws.get_all_values()) + 1
-            linha_status = len(status_ws.get_all_values()) + 1
-
-            # === Montar batch_update ===
-            body = {
-                "valueInputOption": "USER_ENTERED",
-                "data": []
-            }
-
-            # --- Aba PEDIDOS ---
-            body["data"].append({
-                "range": f"PEDIDOS!B{linha_pedidos}:M{linha_pedidos}",
-                "values": [[
-                    nr_ped, cliente, paciente,    # B, C, D
-                    "", "", "", "", "", "", "", "",  # E até L (calculadas)
-                    obs_ped                      # M: OBS_PED
-                ]]
-            })
-
-            # --- Aba PEDIDOS_ITENS ---
-            if itens:
-                body["data"].append({
-                    "range": f"PEDIDOS_ITENS!A{linha_itens}:H{linha_itens+len(itens)-1}",
-                    "values": [
-                        [
-                            nr_ped,
-                            item["produto"],
-                            item["qtde"],
-                            item.get("cor", ""),
-                            "",  # VLR_CAT (calculado)
-                            item["valor"],
-                            "",  # TOTAL_PRODUTO (calculado)
-                            item.get("obs", "")
-                        ]
-                        for item in itens
-                    ]
-                })
-
-            # --- Aba PEDIDOS_CUSTOS ---
-            if custos:
-                body["data"].append({
-                    "range": f"PEDIDOS_CUSTOS!A{linha_custos}:F{linha_custos+len(custos)-1}",
-                    "values": [
-                        [
-                            nr_ped,
-                            custo["desc"],
-                            custo["qtd"],
-                            custo["valor"],
-                            "",  # VLR_TOTAL_CUSTO (calculado)
-                            custo.get("obs", "")
-                        ]
-                        for custo in custos
-                    ]
-                })
-
-            # --- Aba PEDIDOS_STATUS ---
-            body["data"].append({
-                "range": f"PEDIDOS_STATUS!A{linha_status}:H{linha_status}",
-                "values": [[
-                    nr_ped,
+                status_ws.append_row([
+                    novo_nr_ped,
                     "Pedido Registrado",
-                    dt_pedido_fmt,
-                    1,
-                    "",  # DT_HR_PRAZO calculado
-                    "",  # OBS_STATUS (inicial vazio)
+                    dt_pedido,
+                    "1",
+                    "",
+                    "",
                     usuario,
-                    datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
-                ]]
-            })
+                    dt_atual
+                ], value_input_option="USER_ENTERED")
+                app.logger.info(f"[NOVO_PEDIDO] Status inicial 'Pedido Registrado' criado para {novo_nr_ped}")
+            except Exception as e:
+                app.logger.warning(f"[NOVO_PEDIDO] Falha ao registrar status inicial: {e}")
 
-            # --- Executar batch_update ---
-            pedidos_ws.spreadsheet.values_batch_update(body)
+            # ✅ RETORNO PARA O FRONTEND EXIBIR POPUP
+            flash(f"✅ Pedido #{novo_nr_ped} registrado com sucesso!", "sucesso")
+            return jsonify({"sucesso": True, "nr_ped": novo_nr_ped})
 
-            flash(f"✅ Pedido #{nr_ped} cadastrado com sucesso! Deseja incluir outro?", "success")
-            return redirect(url_for("novo_pedido"))
-
-        # === GET ===
-        # Carrega clientes (coluna B)
-        clientes = [row[1] for row in clientes_ws.get_all_values()[1:] if len(row) > 1 and row[1]]
-        clientes.sort()
-
-        # Carrega produtos (coluna B + valor catálogo da coluna C)
-        produtos_rows = produtos_ws.get_all_values()[1:]
-        produtos = [
-            {"nome": row[1], "vlr_cat": row[2].replace("R$", "").strip() if len(row) > 2 else ""}
-            for row in produtos_rows if len(row) > 1 and row[1]
-        ]
-        produtos.sort(key=lambda x: x["nome"])
-
-        # Data/hora atual para o input datetime-local
-        agora = datetime.now(pytz.timezone("America/Cuiaba"))
-        agora_str = agora.strftime("%Y-%m-%dT%H:%M")
-
-        return render_template(
-            "novo_pedido.html",
-            usuario=session.get("usuario"),
-            clientes=clientes,
-            produtos=produtos,
-            agora_str=agora_str
+        # =====================================================
+        # 🟢 MODO GET → CARREGA FORMULÁRIO
+        # =====================================================
+        clientes = sorted([c.get("NOME_CLI") for c in clientes_ws.get_all_records() if c.get("NOME_CLI")])
+        produtos = sorted(
+            [{"PRODUTO": p.get("PRODUTO", ""), "VLR_CAT": p.get("VLR_CAT", "")}
+             for p in produtos_ws.get_all_records() if p.get("PRODUTO")],
+            key=lambda x: x["PRODUTO"]
         )
 
+        context = {
+            "modo": "novo",
+            "nr_ped": "",
+            "usuario": session.get("usuario"),
+            "clientes": clientes,
+            "produtos": produtos,
+            "cliente_atual": "",
+            "paciente_atual": "",
+            "obs_atual": "",
+            "itens": [],
+            "custos": [],
+            "dt_pedido": datetime.now().strftime("%Y-%m-%dT%H:%M")
+        }
+
+        return render_template("pedido_form.html", **context)
+
     except Exception as e:
-        app.logger.error(f"Erro ao carregar novo pedido: {e}")
-        flash("❌ Erro ao processar novo pedido.", "error")
+        import traceback
+        app.logger.error(f"Erro em /novo_pedido: {e}\n{traceback.format_exc()}")
+        flash(f"❌ Erro ao carregar o formulário: {e}", "erro")
         return redirect(url_for("index"))
 
 # =============================
 # DEMAIS ROTAS (detalhes, areceber, itens)
 # =============================
+
+def slugify_status(s: str) -> str:
+    s = str(s or "").strip().lower()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[\s/]+", "-", s)
+    s = re.sub(r"[^a-z0-9\-]", "", s)
+    return s
+
 @app.route("/detalhes/<tipo>/<filtro>")
 def detalhes(tipo, filtro):
     pedidos = pedidos_ws.get_all_records()
@@ -456,6 +527,7 @@ def detalhes(tipo, filtro):
         ("prazo", "hoje"): "Pedidos para hoje",
         ("prazo", "futuro"): "Pedidos futuros",
     }
+
     titulo_custom = titulos_map.get((tipo, filtro), filtro.title())
 
     for p in pedidos:
@@ -465,6 +537,7 @@ def detalhes(tipo, filtro):
         pago = is_paid(p.get("PAGO"))
         prazo = parse_date(p.get("DT_PRAZO"))
 
+        # ============== FILTROS EXISTENTES ==================
         if tipo == "prazo":
             if filtro == "atrasados" and prazo and prazo < hoje and status != "entregue":
                 pedidos_filtrados.append(p)
@@ -487,13 +560,25 @@ def detalhes(tipo, filtro):
             elif filtro == "naoentregues" and status != "entregue":
                 pedidos_filtrados.append(p)
 
+        # ============== NOVO FILTRO: POR STATUS (slug) ==================
+        elif tipo == "porstatus":
+            # compara slug do status do pedido com slug vindo da URL
+            if slugify_status(p.get("STATUS", "")) == filtro.lower():
+                pedidos_filtrados.append(p)
+
+    # adiciona itens correspondentes
     for ped in pedidos_filtrados:
         ped_num = str(ped.get("NR_PED"))
         ped["ITENS"] = [i for i in itens if str(i.get("NR_PED")) == ped_num]
 
+    # agrupa por cliente (reuso do mesmo HTML)
     agrupado = defaultdict(list)
     for ped in pedidos_filtrados:
         agrupado[ped.get("CLIENTE", "—")].append(ped)
+
+    # título especial para o tipo 'porstatus'
+    if tipo == "porstatus" and pedidos_filtrados:
+        titulo_custom = f"Pedidos com status: {pedidos_filtrados[0].get('STATUS')}"
 
     return render_template(
         "detalhes.html",
@@ -558,24 +643,26 @@ def salvar_layout():
 # =============================
 @app.route("/status/<nr_ped>")
 def status_pedido(nr_ped):
-    # Carrega todas as linhas da planilha de status (inclui cabeçalho)
+    usuario = session.get("usuario")
+
+    # 🧾 Carrega todas as linhas da planilha de STATUS
     values = status_ws.get_all_values()
     header = values[0] if values else []
     data_rows = values[1:] if len(values) > 1 else []
 
-    # Mapeia nomes de coluna -> índice
+    # 🔹 Mapeia nomes de coluna -> índice
     hidx = {name: i for i, name in enumerate(header)}
 
     def get_val(row, col):
         idx = hidx.get(col)
         return row[idx] if (idx is not None and idx < len(row)) else ""
 
-    # 🔹 Monta lista do histórico
+    # 🔹 Monta lista do histórico do pedido
     historico = []
     for excel_row_num, row in enumerate(data_rows, start=2):  # 2 = pula cabeçalho
         if str(get_val(row, "NR_PED")).strip() == str(nr_ped):
             historico.append({
-                "row_index": excel_row_num,  # linha REAL no Google Sheets
+                "row_index": excel_row_num,
                 "STATUS_HIST": get_val(row, "STATUS_HIST"),
                 "DT_HR_STATUS": get_val(row, "DT_HR_STATUS"),
                 "PRAZO_STATUS": get_val(row, "PRAZO_STATUS"),
@@ -585,8 +672,10 @@ def status_pedido(nr_ped):
                 "DATA_HORA": get_val(row, "DATA_HORA"),
             })
 
-    # 🔹 Carrega opções de status
-    status_options = cad_status_ws.col_values(1)
+    # 🔹 Carrega cadastro de status e suas obrigatoriedades
+    cadastros = cad_status_ws.get_all_records()
+    status_options = [r["STATUS"] for r in cadastros if r.get("STATUS")]
+    status_prazo_obrig = {r["STATUS"]: r.get("PRAZO_OBRIG", "").strip() for r in cadastros}
 
     # 🔹 Carrega os itens do pedido
     itens = [
@@ -594,17 +683,18 @@ def status_pedido(nr_ped):
         if str(i.get("NR_PED")).strip() == str(nr_ped)
     ]
 
-    # 🔹 Data/hora local para preencher input datetime-local
+    # 🔹 Data/hora local para campos datetime-local
     now_str = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%Y-%m-%dT%H:%M")
 
     return render_template(
         "status.html",
         nr_ped=nr_ped,
+        usuario=usuario,
         historico=historico,
         status_options=status_options,
+        status_prazo_obrig=status_prazo_obrig,
         now_str=now_str,
-        usuario=session.get("usuario"),
-        itens=itens  # <-- adiciona os itens do pedido
+        itens=itens
     )
 
 @app.route("/status/<nr_ped>", methods=["POST"])
@@ -693,7 +783,7 @@ def salvar_status(nr_ped):
                 novo_status,
                 dt_hr_status_str,
                 prazo_status,
-                dt_hr_prazo_str,
+                "", #DT_HR_PRAZO
                 obs_status,
                 usuario,
                 agora_str
@@ -707,7 +797,7 @@ def salvar_status(nr_ped):
             novo_status,
             dt_hr_status_str,
             prazo_status,
-            dt_hr_prazo_str,
+            "", #DT_HR_PRAZO
             obs_status,
             usuario,
             agora_str
@@ -735,6 +825,410 @@ def excluir_status(nr_ped, row_index):
         flash("❌ Erro ao excluir histórico.", "error")
 
     return redirect(url_for("status_pedido", nr_ped=nr_ped))
+    
+# =============================
+# PAGAMENTO (Confirmar / Reverter)
+# =============================
+@app.route("/pagamento/<nr_ped>", methods=["GET", "POST"])
+def pagamento_pedido(nr_ped):
+    try:
+        # === Localiza o pedido na planilha ===
+        pedidos = pedidos_ws.get_all_records()
+        pedido = next((p for p in pedidos if str(p.get("NR_PED")) == str(nr_ped)), None)
+
+        if not pedido:
+            flash("❌ Pedido não encontrado.", "error")
+            return redirect(url_for("index"))
+
+        pago = str(pedido.get("PAGO", "")).strip().upper() == "SIM"
+        dt_receb = str(pedido.get("DT_RECEB", "")).strip()
+
+        if request.method == "POST":
+            acao = request.form.get("acao")
+            data_pgto = request.form.get("data_pgto")
+            usuario = session.get("usuario", "desconhecido")
+
+            # === Localiza a linha exata do pedido no Sheets ===
+            valores = pedidos_ws.get_all_values()
+            header = valores[0] if valores else []
+            data_rows = valores[1:]
+            hidx = {name: i for i, name in enumerate(header)}
+
+            linha_encontrada = None
+            for idx, row in enumerate(data_rows, start=2):
+                if str(row[hidx.get("NR_PED", 1)]) == str(nr_ped):
+                    linha_encontrada = idx
+                    break
+
+            if not linha_encontrada:
+                flash("❌ Não foi possível localizar o pedido na planilha.", "error")
+                return redirect(url_for("index"))
+
+            # === Registrar pagamento ===
+            if acao == "confirmar":
+                if not data_pgto:
+                    flash("⚠️ Informe a data do recebimento.", "error")
+                    return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+
+                try:
+                    dt_obj = datetime.strptime(data_pgto, "%Y-%m-%d")
+                    dt_pgto_fmt = dt_obj.strftime("%d/%m/%Y")
+                except Exception:
+                    flash("⚠️ Data inválida.", "error")
+                    return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+
+                pedidos_ws.update_cell(linha_encontrada, hidx["PAGO"] + 1, "SIM")
+                pedidos_ws.update_cell(linha_encontrada, hidx["DT_RECEB"] + 1, dt_pgto_fmt)
+                flash(f"💰 Pagamento do pedido #{nr_ped} confirmado em {dt_pgto_fmt}.", "success")
+
+            # === Reverter pagamento ===
+            elif acao == "reverter":
+                pedidos_ws.update_cell(linha_encontrada, hidx["PAGO"] + 1, "")
+                pedidos_ws.update_cell(linha_encontrada, hidx["DT_RECEB"] + 1, "")
+                flash(f"↩️ Pagamento do pedido #{nr_ped} foi revertido.", "warning")
+
+            return redirect(url_for("detalhes", tipo="porcliente", filtro="todos"))
+
+        # === GET ===
+        return render_template(
+            "pagamento.html",
+            nr_ped=nr_ped,
+            pago=pago,
+            dt_receb=dt_receb,
+            usuario=session.get("usuario")
+        )
+
+    except Exception as e:
+        app.logger.error(f"Erro em /pagamento/{nr_ped}: {e}")
+        flash("❌ Erro ao carregar tela de pagamento.", "error")
+        return redirect(url_for("index"))
+
+
+@app.route("/pagamento/<nr_ped>/confirmar", methods=["POST"])
+def confirmar_pagamento(nr_ped):
+    """Confirma o pagamento e grava PAGO = 'Sim' + DT_RECEB na planilha."""
+    try:
+        dt_receb = request.form.get("dt_receb")
+        if not dt_receb:
+            flash("⚠️ Informe a data/hora do recebimento.", "error")
+            return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+
+        # Converte para dd/mm/aaaa HH:MM
+        try:
+            dt_receb_fmt = datetime.strptime(dt_receb, "%Y-%m-%dT%H:%M").strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            dt_receb_fmt = dt_receb
+
+        # Localiza linha do pedido
+        values = pedidos_ws.get_all_values()
+        header = values[0]
+        hidx = {h: i for i, h in enumerate(header)}
+
+        for i, row in enumerate(values[1:], start=2):
+            if str(row[hidx.get("NR_PED")]).strip() == str(nr_ped):
+                # Atualiza colunas PAGO e DT_RECEB
+                col_pago = hidx.get("PAGO") + 1
+                col_dtreceb = hidx.get("DT_RECEB") + 1
+                pedidos_ws.update(f"{chr(64+col_pago)}{i}", "Sim")
+                pedidos_ws.update(f"{chr(64+col_dtreceb)}{i}", dt_receb_fmt)
+                flash("💰 Pagamento confirmado com sucesso!", "success")
+                break
+
+        return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+
+    except Exception as e:
+        app.logger.error(f"Erro ao confirmar pagamento: {e}")
+        flash("❌ Erro ao confirmar pagamento.", "error")
+        return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+
+
+@app.route("/pagamento/<nr_ped>/reverter", methods=["POST"])
+def reverter_pagamento(nr_ped):
+    """Reverte o pagamento (PAGO = '', DT_RECEB = '')."""
+    try:
+        values = pedidos_ws.get_all_values()
+        header = values[0]
+        hidx = {h: i for i, h in enumerate(header)}
+
+        for i, row in enumerate(values[1:], start=2):
+            if str(row[hidx.get("NR_PED")]).strip() == str(nr_ped):
+                col_pago = hidx.get("PAGO") + 1
+                col_dtreceb = hidx.get("DT_RECEB") + 1
+                pedidos_ws.update(f"{chr(64+col_pago)}{i}", "")
+                pedidos_ws.update(f"{chr(64+col_dtreceb)}{i}", "")
+                flash("↩️ Pagamento revertido com sucesso!", "success")
+                break
+
+        return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+
+    except Exception as e:
+        app.logger.error(f"Erro ao reverter pagamento: {e}")
+        flash("❌ Erro ao reverter pagamento.", "error")
+        return redirect(url_for("pagamento_pedido", nr_ped=nr_ped))
+   
+   
+# =====================================================
+# ROTA: EDITAR PEDIDO (PADRONIZADA CONFORME PLANILHA)
+# =====================================================
+@app.route("/editar_pedido/<nr_ped>", methods=["GET", "POST"])
+def editar_pedido(nr_ped):
+    try:
+        pedidos_data = pedidos_ws.get_all_records()
+        pedido = next((p for p in pedidos_data if str(p.get("NR_PED")).strip() == str(nr_ped)), None)
+        if not pedido:
+            flash("⚠️ Pedido não encontrado.", "erro")
+            return redirect(url_for("index"))
+
+        # =====================================================
+        # 🟢 PROCESSAMENTO DE EDIÇÃO
+        # =====================================================
+        if request.method == "POST":
+            cliente = request.form.get("cliente", "").strip()
+            paciente = request.form.get("paciente", "").strip()
+            obs_ped = request.form.get("obs_ped", "").strip()
+            itens = json.loads(request.form.get("itens_json", "[]"))
+            custos = json.loads(request.form.get("custos_json", "[]"))
+            dt_pedido = request.form.get("dt_pedido", "").strip()
+
+            # Localiza a linha do pedido no Sheets
+            valores_nrped = pedidos_ws.col_values(2)
+            row_index = next((i for i, v in enumerate(valores_nrped, start=1)
+                              if str(v).strip() == str(nr_ped)), None)
+            if not row_index:
+                flash("⚠️ Linha do pedido não localizada na planilha.", "erro")
+                return redirect(url_for("index"))
+
+            # =====================================================
+            # 🟡 ATUALIZAÇÃO DOS DADOS PRINCIPAIS
+            # (Somente colunas não calculadas)
+            # =====================================================
+            pedidos_ws.update(
+                range_name=f"C{row_index}",
+                values=[[cliente]],
+                value_input_option="USER_ENTERED"
+            )
+
+            pedidos_ws.update(
+                range_name=f"D{row_index}",
+                values=[[paciente]],
+                value_input_option="USER_ENTERED"
+            )
+
+            pedidos_ws.update(
+                range_name=f"M{row_index}",
+                values=[[obs_ped]],
+                value_input_option="USER_ENTERED"
+            )
+
+            # =====================================================
+            # 🟢 ITENS DO PEDIDO
+            # =====================================================
+            itens_data = itens_ws.get_all_records()
+            linhas_itens = [i + 2 for i, r in enumerate(itens_data)
+                            if str(r.get("NR_PED")) == str(nr_ped)]
+            for linha in reversed(linhas_itens):
+                itens_ws.delete_rows(linha)
+
+            for item in itens:
+                itens_ws.append_row([
+                    nr_ped,
+                    item.get("produto", ""),  # PRODUTO
+                    item.get("qtde", ""),     # QTD_ITEM
+                    item.get("cor", ""),      # COR
+                    "",                       # VLR_CAT (calculada)
+                    item.get("valor", ""),    # VLR_COB
+                    "",                       # TOTAL_PROD (calculada)
+                    item.get("obs", "")       # OBS_ITEM
+                ], value_input_option="USER_ENTERED")
+
+            # =====================================================
+            # 🟢 CUSTOS (TERCEIRIZAÇÃO)
+            # =====================================================
+            custos_data = custos_ws.get_all_records()
+            linhas_custos = [i + 2 for i, r in enumerate(custos_data)
+                             if str(r.get("NR_PED")) == str(nr_ped)]
+            for linha in reversed(linhas_custos):
+                custos_ws.delete_rows(linha)
+
+            for custo in custos:
+                custos_ws.append_row([
+                    nr_ped,
+                    custo.get("desc", ""),     # DESC_CUSTO
+                    custo.get("qtd", ""),      # QTD_CUSTO
+                    custo.get("valor", ""),    # VLR_UN_CUSTO
+                    "",                        # VLR_TOT_CUSTO (calculada)
+                    custo.get("obs", "")       # OBS_CUSTO
+                ], value_input_option="USER_ENTERED")
+
+            # ✅ Após salvar tudo
+            flash(f"✅ Pedido #{nr_ped} atualizado com sucesso!", "sucesso")
+            return jsonify({"sucesso": True, "nr_ped": nr_ped})
+
+
+        # =====================================================
+        # 🟢 MODO GET → CARREGA DADOS
+        # =====================================================
+        clientes = sorted([c.get("NOME_CLI") for c in clientes_ws.get_all_records() if c.get("NOME_CLI")])
+        produtos = sorted(
+            [{"PRODUTO": p.get("PRODUTO", ""), "VLR_CAT": p.get("VLR_CAT", "")}
+             for p in produtos_ws.get_all_records() if p.get("PRODUTO")],
+            key=lambda x: x["PRODUTO"].lower()
+        )
+
+        # Itens e custos
+        itens = [r for r in itens_ws.get_all_records() if str(r.get("NR_PED")) == str(nr_ped)]
+        custos = [r for r in custos_ws.get_all_records() if str(r.get("NR_PED")) == str(nr_ped)]
+
+        # Lê a aba PEDIDOS_STATUS e procura o "Pedido Registrado"
+        status_data = status_ws.get_all_records()
+        registro_status = next(
+            (s for s in status_data
+             if str(s.get("NR_PED")).strip() == str(nr_ped)
+             and str(s.get("STATUS_HIST", "")).strip().lower() == "pedido registrado"),
+            None
+        )
+
+        # Tenta pegar a data diretamente do DT_HR_STATUS
+        dt_pedido_raw = registro_status.get("DT_HR_STATUS", "") if registro_status else ""
+        
+        # Normaliza para o formato do input datetime-local
+        dt_pedido_input = to_input_datetime(dt_pedido_raw)
+        
+        def safe_dict(d):
+            return {k: ("" if v in (None, "undefined", "None") else str(v)) for k, v in d.items()}
+
+        pedido_limpo = safe_dict(pedido)
+
+        # normaliza e adiciona campo TOTAL_VIEW calculado
+        itens_limpos = []
+        for i in itens:
+            item = safe_dict(i)
+            # normaliza o valor
+            valor_cob = to_float_safe(item.get("VLR_COB"))
+            qtd_item = to_float_safe(item.get("QTD_ITEM"))
+            # recria os campos limpos
+            item["VLR_COB"] = f"{valor_cob:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            item["TOTAL_VIEW"] = f"{(valor_cob * qtd_item):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            itens_limpos.append(item)
+
+        custos_limpos = []
+        for c in custos:
+            custo = safe_dict(c)
+            valor_unit = to_float_safe(custo.get("VLR_UN_CUSTO"))
+            qtd_custo = to_float_safe(custo.get("QTD_CUSTO"))
+            custo["VLR_UN_CUSTO"] = f"{valor_unit:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            custo["TOTAL_VIEW"] = f"{(valor_unit * qtd_custo):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            custos_limpos.append(custo)
+
+        app.logger.info(f"[DEBUG PEDIDO {nr_ped}] Cliente={pedido_limpo.get('CLIENTE')}, "
+                        f"Paciente={pedido_limpo.get('PACIENTE')}, "
+                        f"Itens={len(itens_limpos)}, Custos={len(custos_limpos)}")
+
+        context = {
+            "modo": "editar",
+            "nr_ped": nr_ped,
+            "usuario": session.get("usuario"),
+            "clientes": clientes,
+            "produtos": produtos,
+            "cliente_atual": pedido_limpo.get("CLIENTE", ""),
+            "paciente_atual": pedido_limpo.get("PACIENTE", ""),
+            "obs_atual": pedido_limpo.get("OBS_PED", ""),
+            "itens": itens_limpos,
+            "custos": custos_limpos,
+            "dt_pedido": dt_pedido_input
+        }
+
+        return render_template("pedido_form.html", **context)
+
+    except Exception as e:
+        import traceback
+        app.logger.error(f"Erro em /editar_pedido/{nr_ped}: {e}\n{traceback.format_exc()}")
+        flash(f"❌ Erro ao carregar o pedido: {e}", "erro")
+        return redirect(url_for("index"))
+    
+
+# =====================================================
+# ROTA: EXCLUIR PEDIDO COMPLETO (otimizada e robusta)
+# =====================================================
+@app.route("/api/excluir_pedido/<nr_ped>", methods=["DELETE"])
+def excluir_pedido(nr_ped):
+    try:
+        app.logger.info(f"[EXCLUIR_PEDIDO] Iniciando exclusão do pedido {nr_ped}")
+
+        def agrupar_consecutivas(seq):
+            seq = sorted(seq)
+            grupos, grupo = [], [seq[0]]
+            for i in seq[1:]:
+                if i == grupo[-1] + 1:
+                    grupo.append(i)
+                else:
+                    grupos.append(grupo)
+                    grupo = [i]
+            grupos.append(grupo)
+            return grupos
+
+        excluidos = {"pedidos": 0, "itens": 0, "custos": 0, "status": 0}
+
+        # ---------------------------
+        # 🧾 ABA PEDIDOS
+        # ---------------------------
+        col_nr_ped = pedidos_ws.col_values(2)
+        linhas_pedidos = [i + 1 for i, val in enumerate(col_nr_ped) if str(val).strip() == str(nr_ped)]
+        for grupo in agrupar_consecutivas(linhas_pedidos) if linhas_pedidos else []:
+            pedidos_ws.delete_rows(grupo[0], grupo[-1])
+            excluidos["pedidos"] += len(grupo)
+
+        # ---------------------------
+        # 📦 ABA PEDIDOS_ITENS
+        # ---------------------------
+        col_nr_item = itens_ws.col_values(1)
+        linhas_itens = [i + 1 for i, val in enumerate(col_nr_item) if str(val).strip() == str(nr_ped)]
+        for grupo in agrupar_consecutivas(linhas_itens) if linhas_itens else []:
+            itens_ws.delete_rows(grupo[0], grupo[-1])
+            excluidos["itens"] += len(grupo)
+
+        # ---------------------------
+        # 💰 ABA PEDIDOS_CUSTOS
+        # ---------------------------
+        col_nr_custo = custos_ws.col_values(1)
+        linhas_custos = [i + 1 for i, val in enumerate(col_nr_custo) if str(val).strip() == str(nr_ped)]
+        for grupo in agrupar_consecutivas(linhas_custos) if linhas_custos else []:
+            custos_ws.delete_rows(grupo[0], grupo[-1])
+            excluidos["custos"] += len(grupo)
+
+        # ---------------------------
+        # 📋 ABA PEDIDOS_STATUS
+        # ---------------------------
+        try:
+            col_nr_status = status_ws.col_values(1)
+            linhas_status = [i + 1 for i, val in enumerate(col_nr_status) if str(val).strip() == str(nr_ped)]
+            for grupo in agrupar_consecutivas(linhas_status) if linhas_status else []:
+                status_ws.delete_rows(grupo[0], grupo[-1])
+                excluidos["status"] += len(grupo)
+        except Exception as e:
+            app.logger.warning(f"[EXCLUIR_PEDIDO] Aba PEDIDOS_STATUS não acessível: {e}")
+
+        total_excluidos = sum(excluidos.values())
+        if total_excluidos == 0:
+            msg = f"⚠️ Nenhum registro encontrado para o pedido {nr_ped}."
+            app.logger.warning(f"[EXCLUIR_PEDIDO] {msg}")
+            return jsonify({"ok": False, "msg": msg})
+
+        msg = (
+            f"Pedido {nr_ped} excluído com sucesso! "
+            f"(PEDIDOS: {excluidos['pedidos']} | ITENS: {excluidos['itens']} | "
+            f"CUSTOS: {excluidos['custos']} | STATUS: {excluidos['status']})"
+        )
+        app.logger.info(f"[EXCLUIR_PEDIDO] ✅ {msg}")
+
+        return jsonify({"ok": True, "msg": msg})
+
+    except Exception as e:
+        import traceback
+        erro = traceback.format_exc()
+        app.logger.error(f"[EXCLUIR_PEDIDO] ❌ Erro ao excluir {nr_ped}: {e}\n{erro}")
+        return jsonify({"ok": False, "msg": f"Erro ao excluir o pedido: {e}"})
+
 
 # =============================
 # DEBUG TIME (opcional)

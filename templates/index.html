@@ -73,21 +73,34 @@
       </ul>
     </div>
 
-    <!-- Card 4: Status -->
-    <div id="card-status" data-id="card-status" class="card">
-      <h2>📊 Por Status</h2>
-      <ul class="list">
-        {% for status, dados in status_map.items() %}
-        <li>
-          <div>
-            <b>{{ status }}:</b> {{ dados["qtd"] }} ({{ dados["val"]|format_brl }})
-          </div>
-          <a href="{{ url_for('detalhes', tipo='status', filtro=status) }}" class="btn-small">Detalhes</a>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-  </div>
+	<!-- Card 4: Por Status -->
+	<div id="card-status" data-id="card-status" class="card" style="padding: 14px 16px;">
+	  <h2>📊 Por Status</h2>
+	  {% for grupo, lista in cards_por_status.items() %}
+		{% if lista %}
+		  <h3 class="grupo-titulo {% if grupo == 'Com Prazo' %}com-prazo{% else %}sem-prazo{% endif %}">
+			{% if grupo == 'Com Prazo' %}
+			  ⏱️ {{ grupo }}
+			{% else %}
+			  🦷 {{ grupo }}
+			{% endif %}
+		  </h3>
+
+		  <ul class="list">
+			{% for s in lista %}
+			<li>
+			  <div>
+				<b>{{ s.status }}:</b>
+				{{ s.qtd }} ({{ s.val|format_brl }})
+			  </div>
+			  <a href="{{ url_for('detalhes', tipo='porstatus', filtro=s.slug) }}" class="btn-small">Detalhes</a>
+			</li>
+			{% endfor %}
+		  </ul>
+		{% endif %}
+	  {% endfor %}
+	</div>
+
 
   <!-- SortableJS -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -135,4 +148,13 @@
       }
     });
   </script>
+  <script>
+    // Salva a última rota visitada antes de mudar de página
+    document.addEventListener("DOMContentLoaded", () => {
+      const currentPath = window.location.pathname;
+      sessionStorage.setItem("ultima_rota", currentPath);
+    });
+  </script>
+
+  
 {% endblock %}

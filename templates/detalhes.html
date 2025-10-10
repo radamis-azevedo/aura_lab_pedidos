@@ -61,15 +61,31 @@
                   <td>
                     <button class="accordion-btn" id="btn-{{ p.NR_PED }}" onclick="toggleItens('{{ p.NR_PED }}')">+</button>
                   </td>
-                  <td>{{ p.NR_PED }}</td>
                   <td>
-					{% if p.STATUS|lower == "entregue" %}
-						<a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}" class="status-link">✅</a> {{ p.STATUS }}
-					{% elif p.STATUS|lower == "atrasado" %}
-						<a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}" class="status-link">🔴</a> {{ p.STATUS }}
-					{% else %}
-						<a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}" class="status-link">🟡</a> {{ p.STATUS }}
-					{% endif %}
+				    <a href="{{ url_for('editar_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="pedido-link">
+					  {{ "%02d"|format(p.NR_PED|int) }}
+				    </a>
+				  </td>
+
+ 				  <td>
+				    {% if p.STATUS|lower == "entregue" %}
+					  <a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="status-link">✅</a> {{ p.STATUS }}
+				    {% elif p.STATUS|lower == "atrasado" %}
+					  <a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="status-link">🔴</a> {{ p.STATUS }}
+				    {% else %}
+					  <a href="{{ url_for('status_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="status-link">🟡</a> {{ p.STATUS }}
+				    {% endif %}
+
+				    {% set pago = (p.PAGO|string).strip().lower() == 'sim' %}
+				    {% set tem_data = p.DT_RECEB and p.DT_RECEB|length > 0 %}
+
+				    {% if pago and tem_data %}
+					  <!-- Pedido pago -->
+					  <a href="{{ url_for('pagamento_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="btn-pagamento pago" title="Pago em {{ p.DT_RECEB }}">💳</a>
+				    {% else %}
+					  <!-- Pedido não pago -->
+					  <a href="{{ url_for('pagamento_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="btn-pagamento nao-pago" title="Registrar pagamento">💰</a>
+				    {% endif %}
 				  </td>
 
 				  <td>{{ p.PACIENTE }}</td>
@@ -158,5 +174,17 @@
       });
     }
   </script>
+  
+  <script>
+	// Grava a rota atual como origem válida para o botão Voltar
+	document.addEventListener("DOMContentLoaded", () => {
+	  const rotaAtual = window.location.pathname;
+	  if (rotaAtual.includes("/detalhes") || rotaAtual === "/") {
+		sessionStorage.setItem("ultima_rota", window.location.pathname + window.location.search);
+	  }
+	});
+
+  </script>
+
 </body>
 </html>

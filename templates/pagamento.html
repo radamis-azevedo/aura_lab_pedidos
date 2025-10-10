@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Pagamento do Pedido</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* ==========================
+       ESTILO ESPECÍFICO DO PAGAMENTO
+       ========================== */
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+
+    .pagamento-container {
+      max-width: 500px;
+      margin: 50px auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      padding: 25px;
+    }
+
+    .pagamento-container h2 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #333;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    label {
+      font-weight: bold;
+      color: #444;
+    }
+
+    input[type="date"] {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+
+    .btn-confirmar {
+      background-color: #1e7e34;
+      color: white;
+    }
+
+    .btn-confirmar:hover {
+      background-color: #155d26;
+    }
+
+    .btn-reverter {
+      background-color: #b02a37;
+      color: white;
+    }
+
+    .btn-reverter:hover {
+      background-color: #851c27;
+    }
+
+    .btn-voltar {
+      display: block;
+      margin-top: 15px;
+      text-align: center;
+      text-decoration: none;
+      color: #555;
+      font-weight: bold;
+    }
+
+    .btn-voltar:hover {
+      text-decoration: underline;
+    }
+
+    .flash-container {
+      margin-bottom: 15px;
+    }
+
+    .flash {
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .flash.success { background-color: #d1e7dd; color: #0f5132; }
+    .flash.error { background-color: #f8d7da; color: #842029; }
+    .flash.warning { background-color: #fff3cd; color: #664d03; }
+
+    @media (max-width: 600px) {
+      .pagamento-container {
+        margin: 20px;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="logo">
+      <a href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo"></a>
+    </div>
+    <div class="user-info">
+      <span>{{ usuario }}</span>
+      <a href="{{ url_for('logout') }}" class="btn-small">Sair</a>
+    </div>
+  </div>
+
+  <div class="pagamento-container">
+    <h2>💰 Pagamento do Pedido #{{ nr_ped }}</h2>
+
+    <!-- Mensagens Flash -->
+    <div class="flash-container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- Formulário -->
+    <form method="POST">
+      {% if not pago %}
+        <label for="data_pgto">Data do Pagamento:</label>
+        <input type="date" id="data_pgto" name="data_pgto" required>
+
+        <button type="submit" name="acao" value="confirmar" class="btn btn-confirmar">✅ Confirmar Pagamento</button>
+      {% else %}
+        <p><strong>Pagamento já confirmado em:</strong> {{ dt_receb }}</p>
+        <button type="submit" name="acao" value="reverter" class="btn btn-reverter">↩️ Reverter Pagamento</button>
+      {% endif %}
+    </form>
+
+    <a href="javascript:history.back()" class="btn-voltar">← Voltar</a>
+  </div>
+
+	<script>
+	  // Quando a página terminar de carregar
+	  window.addEventListener("DOMContentLoaded", () => {
+		const inputData = document.getElementById("data_pgto");
+		if (inputData) {
+		  const hoje = new Date();
+		  const ano = hoje.getFullYear();
+		  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+		  const dia = String(hoje.getDate()).padStart(2, "0");
+		  inputData.value = `${ano}-${mes}-${dia}`; // formato YYYY-MM-DD
+		}
+	  });
+	</script>
+  
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const voltarBtn = document.querySelector(".cancel-btn, .back-btn");
+  if (!voltarBtn) return;
+
+  voltarBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    // Adiciona a animação de saída
+    document.body.classList.add("fade-out");
+
+    const ultima = sessionStorage.getItem("ultima_rota");
+
+    setTimeout(() => {
+      if (ultima && ultima !== window.location.pathname) {
+        window.location.href = ultima;
+      } else {
+        window.location.href = "/";
+      }
+    }, 300); // tempo da animação CSS
+  });
+});
+</script>
+
+
+</body>
+</html>

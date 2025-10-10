@@ -217,6 +217,67 @@
     }
 
     resetarFormulario();
+	
+	
+	// === CONTROLE DE EXIBIÇÃO DO CAMPO PRAZO (dias) ===
+
+	// 🧮 Mapeia os status e se possuem prazo obrigatório
+	const statusPrazoObrig = {
+	  {% for s in status_options %}
+		"{{ s }}": "{{ status_prazo_obrig.get(s, '') }}",
+	  {% endfor %}
+	};
+
+	// 🎯 Função chamada ao alterar o status
+	document.getElementById("status").addEventListener("change", function() {
+	  const statusSelecionado = this.value;
+	  const campoPrazo = document.getElementById("prazo").closest("label");
+
+	  if (statusPrazoObrig[statusSelecionado] === "S") {
+		// Exibe e torna obrigatório
+		campoPrazo.style.display = "inline-block";
+		document.getElementById("prazo").required = true;
+	  } else if (statusPrazoObrig[statusSelecionado] === "N") {
+		// Oculta, limpa e remove obrigatoriedade
+		document.getElementById("prazo").value = "";
+		campoPrazo.style.display = "none";
+		document.getElementById("prazo").required = false;
+	  } else {
+		// Caso não haja definição, mantém padrão (visível mas opcional)
+		campoPrazo.style.display = "inline-block";
+		document.getElementById("prazo").required = false;
+	  }
+	});
+
   </script>
+  
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const voltarBtn = document.querySelector(".back-btn");
+  if (!voltarBtn) return;
+
+  voltarBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const ultima = sessionStorage.getItem("ultima_rota");
+    if (ultima && (ultima.includes("/detalhes") || ultima === "/")) {
+      window.location.href = ultima;
+    } else {
+      window.location.href = "/";
+    }
+  });
+});
+
+
+</script>
+
+<style>
+/* Animação suave ao sair da página */
+body.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+</style>
+
+
 </body>
 </html>

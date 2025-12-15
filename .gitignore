@@ -1,4 +1,13 @@
+# Ambiente virtual
 venv/
+
+# Cache Python
 __pycache__/
+*.pyc
+
+# Variáveis de ambiente
 .env
+
+# Credenciais sensíveis
 credentials.json
+*credentials*.json

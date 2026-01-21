@@ -8,7 +8,7 @@
       <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo do Laboratório">
     </div>
     <h2>Acesso ao Sistema</h2>
-    <form method="post" action="{{ url_for('login') }}" class="login-form">
+    <form method="post" action="{{ url_for('auth.login') }}" class="login-form">
       <div class="form-group">
         <label for="fone">Telefone:</label>
         <input type="text" name="fone" id="fone" placeholder="Digite seu telefone" required>

@@ -1,14 +1,32 @@
-# Ambiente virtual
+# =========================
+# Python / Ambiente
+# =========================
 venv/
-
-# Cache Python
+.venv/
 __pycache__/
 *.pyc
 
+# =========================
 # Variáveis de ambiente
+# =========================
 .env
+.env.*
 
-# Credenciais sensíveis
+# =========================
+# Credenciais / Segredos
+# =========================
+secrets/
 credentials.json
 *credentials*.json
+*service-account*.json
+*gcp*.json
+*sa*.json
+*.pem
+*.key
+*.p12
 auralab@auralab
+
+# =========================
+# macOS
+# =========================
+.DS_Store

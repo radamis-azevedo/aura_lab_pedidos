@@ -778,20 +778,14 @@ def salvar_status(nr_ped):
     usuario = session.get("usuario")
     row_index = request.form.get("row_index")
 
-    # Converte Data/Hora recebida
+    # Converte Data/Hora recebida do formulário
     try:
         dt_hr_status_dt = datetime.strptime(dt_hr_status, "%Y-%m-%dT%H:%M")
     except Exception:
         flash("⚠️ Data/Hora inválida.", "error")
         return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
-    # Strings formatadas para salvar no Sheets
-    dt_hr_status_str = dt_hr_status_dt.strftime("%d/%m/%Y %H:%M")
-    dias = int(prazo_status or 0)
-    dt_hr_prazo_str = (dt_hr_status_dt + timedelta(days=dias)).strftime("%d/%m/%Y %H:%M")
-    agora_str = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
-
-    # === Validações (mantém o que você já tinha acima) ===
+    # Carrega dados atuais para validação cronológica
     values = status_ws.get_all_values()
     header = values[0] if values else []
     data_rows = values[1:] if len(values) > 1 else []
@@ -804,80 +798,70 @@ def salvar_status(nr_ped):
     historico = []
     for excel_row_num, row in enumerate(data_rows, start=2):
         if str(get_val(row, "NR_PED")).strip() == str(nr_ped):
-            dt_val = get_val(row, "DT_HR_STATUS")
-            try:
-                dt_val = datetime.strptime(dt_val, "%d/%m/%Y %H:%M")
-            except Exception:
-                dt_val = None
+            dt_txt = get_val(row, "DT_HR_STATUS")
+            # Usa a função parse_br_datetime que você já tem no código
+            dt_val = parse_br_datetime(dt_txt) 
+            
             historico.append({
                 "row_index": excel_row_num,
                 "STATUS_HIST": get_val(row, "STATUS_HIST"),
                 "DT_HR_STATUS": dt_val
             })
 
+    # Ordena o histórico para garantir a lógica de comparação
+    # Se DT_HR_STATUS for None, coloca no início do tempo para não quebrar o sorted
     historico = sorted(historico, key=lambda x: x["DT_HR_STATUS"] or datetime.min)
 
-    # 1) Pedido Registrado não pode ser duplicado
-    if novo_status.strip().lower() == "pedido registrado" and not row_index:
-        flash("⚠️ O status 'Pedido Registrado' já existe e não pode ser duplicado.", "error")
-        return redirect(url_for("status_pedido", nr_ped=nr_ped))
-
-    # 2) Ordem cronológica
+    # === VALIDAÇÃO CRONOLÓGICA (CORREÇÃO DO TYPEERROR) ===
     if row_index:
         row_index = int(row_index)
         atual = next((h for h in historico if h["row_index"] == row_index), None)
-        idx = historico.index(atual) if atual else -1
-
-        if idx > 0 and dt_hr_status_dt < historico[idx-1]["DT_HR_STATUS"]:
-            flash(f"⚠️ Data/Hora Início deve ser >= do status anterior ({historico[idx-1]['STATUS_HIST']}).", "error")
-            return redirect(url_for("status_pedido", nr_ped=nr_ped))
-
-        if idx < len(historico)-1 and dt_hr_status_dt > historico[idx+1]["DT_HR_STATUS"]:
-            flash(f"⚠️ Data/Hora Início deve ser <= do status seguinte ({historico[idx+1]['STATUS_HIST']}).", "error")
-            return redirect(url_for("status_pedido", nr_ped=nr_ped))
+        try:
+            idx = historico.index(atual) if atual else -1
+            
+            # Valida com o anterior (se o anterior tiver data válida)
+            if idx > 0:
+                ant = historico[idx-1]
+                if ant["DT_HR_STATUS"] and dt_hr_status_dt < ant["DT_HR_STATUS"]:
+                    flash(f"⚠️ Data deve ser >= ao status anterior ({ant['STATUS_HIST']}).", "error")
+                    return redirect(url_for("status_pedido", nr_ped=nr_ped))
+            
+            # Valida com o próximo (se o próximo tiver data válida)
+            if idx != -1 and idx < len(historico) - 1:
+                prox = historico[idx+1]
+                if prox["DT_HR_STATUS"] and dt_hr_status_dt > prox["DT_HR_STATUS"]:
+                    flash(f"⚠️ Data deve ser <= ao status seguinte ({prox['STATUS_HIST']}).", "error")
+                    return redirect(url_for("status_pedido", nr_ped=nr_ped))
+        except ValueError:
+            pass
     else:
-        if historico and dt_hr_status_dt < historico[-1]["DT_HR_STATUS"]:
-            flash(f"⚠️ Data/Hora Início deve ser >= do último status ({historico[-1]['STATUS_HIST']}).", "error")
-            return redirect(url_for("status_pedido", nr_ped=nr_ped))
+        # Nova inclusão: valida apenas com o último status se ele tiver data
+        if historico:
+            ultimo = historico[-1]
+            if ultimo["DT_HR_STATUS"] and dt_hr_status_dt < ultimo["DT_HR_STATUS"]:
+                flash(f"⚠️ Data deve ser >= ao último status ({ultimo['STATUS_HIST']}).", "error")
+                return redirect(url_for("status_pedido", nr_ped=nr_ped))
 
-    # 3) Prazo obrigatório
-    obrigs = cad_status_ws.get_all_records()
-    obrig_map = {str(r["STATUS"]).strip(): str(r.get("PRAZO_OBRIG", "N")).upper() for r in obrigs}
-    if obrig_map.get(novo_status, "N") == "S" and not prazo_status:
-        flash(f"⚠️ O status '{novo_status}' exige preenchimento do prazo (dias).", "error")
-        return redirect(url_for("status_pedido", nr_ped=nr_ped))
+    # === PERSISTÊNCIA NO GOOGLE SHEETS ===
+    dt_hr_status_str = dt_hr_status_dt.strftime("%d/%m/%Y %H:%M")
+    dias = int(prazo_status or 0)
+    dt_hr_prazo_str = (dt_hr_status_dt + timedelta(days=dias)).strftime("%d/%m/%Y %H:%M") if dias > 0 else ""
+    agora_str = datetime.now(ZoneInfo("America/Cuiaba")).strftime("%d/%m/%Y %H:%M")
 
-    # === Persistência ===
     if row_index:
         status_ws.update(
             f"B{row_index}:H{row_index}",
-            [[
-                novo_status,
-                dt_hr_status_str,
-                prazo_status,
-                "", #DT_HR_PRAZO
-                obs_status,
-                usuario,
-                agora_str
-            ]],
+            [[novo_status, dt_hr_status_str, prazo_status, dt_hr_prazo_str, obs_status, usuario, agora_str]],
             value_input_option="USER_ENTERED"
         )
         flash("✏️ Status atualizado com sucesso!", "success")
     else:
         status_ws.append_row([
-            nr_ped,
-            novo_status,
-            dt_hr_status_str,
-            prazo_status,
-            "", #DT_HR_PRAZO
-            obs_status,
-            usuario,
-            agora_str
+            nr_ped, novo_status, dt_hr_status_str, prazo_status, dt_hr_prazo_str, obs_status, usuario, agora_str
         ], value_input_option="USER_ENTERED")
         flash("✅ Novo status incluído com sucesso!", "success")
 
     return redirect(url_for("status_pedido", nr_ped=nr_ped))
-
 
 
 @app.route("/status/<nr_ped>/delete/<int:row_index>", methods=["POST"])

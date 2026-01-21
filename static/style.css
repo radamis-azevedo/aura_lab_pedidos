@@ -310,7 +310,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 .login-form .form-group { margin: 12px 0; text-align: left; }
 .login-form label { font-weight: bold; display: block; margin-bottom: 4px; }
 .login-form input {
-  width: 100%;
+  width: 90%;
   padding: 8px 10px;
   border: 1px solid #ccc;
   border-radius: 6px;
@@ -913,7 +913,63 @@ body {
 
 .status-table td:nth-child(2), 
 .status-table td:nth-child(3) {
-  text-align: right;
+  text-align: left  1. Base
+  2. Grid de Cards
+  3. Cards
+  4. Títulos Detalhes
+  5. Listas Gerais
+  6. Lista de Clientes Devedores
+  7. Botões
+  8. Destaques
+  9. Menu do Card
+  10. Drag & Drop
+  11. Detalhes por Cliente
+  12. Topo
+  13. Switch/Toggle
+  14. Login
+  15. Tabela Detalhes  1. Base
+  2. Grid de Cards
+  3. Cards
+  4. Títulos Detalhes
+  5. Listas Gerais
+  6. Lista de Clientes Devedores
+  7. Botões
+  8. Destaques
+  9. Menu do Card
+  10. Drag & Drop
+  11. Detalhes por Cliente
+  12. Topo
+  13. Switch/Toggle
+  14. Login
+  15. Tabela Detalhes  1. Base
+  2. Grid de Cards
+  3. Cards
+  4. Títulos Detalhes
+  5. Listas Gerais
+  6. Lista de Clientes Devedores
+  7. Botões
+  8. Destaques
+  9. Menu do Card
+  10. Drag & Drop
+  11. Detalhes por Cliente
+  12. Topo
+  13. Switch/Toggle
+  14. Login
+  15. Tabela Detalhes  1. Base
+  2. Grid de Cards
+  3. Cards
+  4. Títulos Detalhes
+  5. Listas Gerais
+  6. Lista de Clientes Devedores
+  7. Botões
+  8. Destaques
+  9. Menu do Card
+  10. Drag & Drop
+  11. Detalhes por Cliente
+  12. Topo
+  13. Switch/Toggle
+  14. Login
+  15. Tabela Detalhes;
   white-space: nowrap;
 }
 

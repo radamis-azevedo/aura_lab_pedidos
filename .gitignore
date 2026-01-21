@@ -11,3 +11,4 @@ __pycache__/
 # Credenciais sensíveis
 credentials.json
 *credentials*.json
+auralab@auralab

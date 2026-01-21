@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from collections import defaultdict
+from gspread.utils import rowcol_to_a1
 import pytz
 import os
 import json
@@ -51,6 +52,72 @@ def parse_float(value):
         return float(cleaned)
     except Exception:
         return 0.0
+
+def safe_json_list(raw_value, label):
+    try:
+        parsed = json.loads(raw_value or "[]")
+    except json.JSONDecodeError:
+        app.logger.warning(f"[JSON] Falha ao carregar {label}. Valor recebido: {raw_value!r}")
+        return []
+    if isinstance(parsed, list):
+        return parsed
+    app.logger.warning(f"[JSON] Conteúdo inválido para {label}. Esperado lista, recebido: {type(parsed).__name__}")
+    return []
+
+def agrupar_consecutivas(seq):
+    seq = sorted(seq)
+    if not seq:
+        return []
+    grupos, grupo = [], [seq[0]]
+    for i in seq[1:]:
+        if i == grupo[-1] + 1:
+            grupo.append(i)
+        else:
+            grupos.append(grupo)
+            grupo = [i]
+    grupos.append(grupo)
+    return grupos
+
+def get_row_indices_by_col(values, col_index, target_value):
+    indices = []
+    for i, row in enumerate(values[1:], start=2):
+        val = row[col_index - 1] if col_index - 1 < len(row) else ""
+        if str(val).strip() == str(target_value):
+            indices.append(i)
+    return indices
+
+def append_rows_safe(ws, rows):
+    if rows:
+        ws.append_rows(rows, value_input_option="USER_ENTERED")
+
+def batch_update_rows(ws, row_indices, rows):
+    if not row_indices or not rows:
+        return
+    col_count = max(len(r) for r in rows)
+    data = []
+    for row_index, row_vals in zip(row_indices, rows):
+        padded = row_vals + [""] * (col_count - len(row_vals))
+        start = rowcol_to_a1(row_index, 1)
+        end = rowcol_to_a1(row_index, col_count)
+        data.append({"range": f"{start}:{end}", "values": [padded]})
+    ws.batch_update(data, value_input_option="USER_ENTERED")
+
+def replace_detail_rows(ws, col_index, key_value, new_rows):
+    values = ws.get_all_values()
+    row_indices = get_row_indices_by_col(values, col_index, key_value)
+
+    if not new_rows:
+        for grupo in agrupar_consecutivas(row_indices):
+            ws.delete_rows(grupo[0], grupo[-1])
+        return
+
+    if len(row_indices) == len(new_rows):
+        batch_update_rows(ws, row_indices, new_rows)
+        return
+
+    append_rows_safe(ws, new_rows)
+    for grupo in agrupar_consecutivas(row_indices):
+        ws.delete_rows(grupo[0], grupo[-1])
 
 def parse_date(value):
     if not value:
@@ -378,7 +445,6 @@ tz = pytz.timezone("America/Cuiaba")
 # =====================================================
 # ROTA: NOVO PEDIDO (corrigida e padronizada)
 # =====================================================
-from datetime import datetime  # ✅ mover para o topo do arquivo
 
 @app.route("/novo_pedido", methods=["GET", "POST"])
 def novo_pedido():
@@ -387,8 +453,8 @@ def novo_pedido():
             cliente = request.form.get("cliente", "").strip()
             paciente = request.form.get("paciente", "").strip()
             obs_ped = request.form.get("obs_ped", "").strip()
-            itens = json.loads(request.form.get("itens_json", "[]"))
-            custos = json.loads(request.form.get("custos_json", "[]"))
+            itens = safe_json_list(request.form.get("itens_json", "[]"), "itens")
+            custos = safe_json_list(request.form.get("custos_json", "[]"), "custos")
 
             # ==============================
             # 🆕 GERA NOVO NÚMERO DE PEDIDO
@@ -420,8 +486,8 @@ def novo_pedido():
             # ==============================
             # 📦 INSERE ITENS
             # ==============================
-            for item in itens:
-                itens_ws.append_row([
+            itens_rows = [
+                [
                     novo_nr_ped,
                     item.get("produto", ""),
                     item.get("qtde", ""),
@@ -430,20 +496,26 @@ def novo_pedido():
                     item.get("valor", ""),    # VLR_COB
                     "",                       # TOTAL_PROD (calculado)
                     item.get("obs", "")
-                ], value_input_option="USER_ENTERED")
+                ]
+                for item in itens
+            ]
+            append_rows_safe(itens_ws, itens_rows)
 
             # ==============================
             # 💰 INSERE CUSTOS
             # ==============================
-            for custo in custos:
-                custos_ws.append_row([
+            custos_rows = [
+                [
                     novo_nr_ped,
                     custo.get("desc", ""),
                     custo.get("qtd", ""),
                     custo.get("valor", ""),
                     "",                       # VLR_TOT_CUSTO (calculado)
                     custo.get("obs", "")
-                ], value_input_option="USER_ENTERED")
+                ]
+                for custo in custos
+            ]
+            append_rows_safe(custos_ws, custos_rows)
 
             # ==============================
             # 📋 REGISTRA STATUS INICIAL
@@ -986,51 +1058,36 @@ def editar_pedido(nr_ped):
             cliente = request.form.get("cliente", "").strip()
             paciente = request.form.get("paciente", "").strip()
             obs_ped = request.form.get("obs_ped", "").strip()
-            itens = json.loads(request.form.get("itens_json", "[]"))
-            custos = json.loads(request.form.get("custos_json", "[]"))
+            itens = safe_json_list(request.form.get("itens_json", "[]"), "itens")
+            custos = safe_json_list(request.form.get("custos_json", "[]"), "custos")
             dt_pedido = request.form.get("dt_pedido", "").strip()
 
             # Localiza a linha do pedido no Sheets
-            valores_nrped = pedidos_ws.col_values(2)
-            row_index = next((i for i, v in enumerate(valores_nrped, start=1)
-                              if str(v).strip() == str(nr_ped)), None)
-            if not row_index:
+            pedidos_values = pedidos_ws.get_all_values()
+            row_indices = get_row_indices_by_col(pedidos_values, 2, nr_ped)
+            if not row_indices:
                 flash("⚠️ Linha do pedido não localizada na planilha.", "erro")
                 return redirect(url_for("index"))
+            row_index = row_indices[0]
 
             # =====================================================
             # 🟡 ATUALIZAÇÃO DOS DADOS PRINCIPAIS
             # (Somente colunas não calculadas)
             # =====================================================
-            pedidos_ws.update(
-                range_name=f"C{row_index}",
-                values=[[cliente]],
-                value_input_option="USER_ENTERED"
-            )
-
-            pedidos_ws.update(
-                range_name=f"D{row_index}",
-                values=[[paciente]],
-                value_input_option="USER_ENTERED"
-            )
-
-            pedidos_ws.update(
-                range_name=f"M{row_index}",
-                values=[[obs_ped]],
+            pedidos_ws.batch_update(
+                [
+                    {"range": f"{rowcol_to_a1(row_index, 3)}", "values": [[cliente]]},
+                    {"range": f"{rowcol_to_a1(row_index, 4)}", "values": [[paciente]]},
+                    {"range": f"{rowcol_to_a1(row_index, 13)}", "values": [[obs_ped]]},
+                ],
                 value_input_option="USER_ENTERED"
             )
 
             # =====================================================
             # 🟢 ITENS DO PEDIDO
             # =====================================================
-            itens_data = itens_ws.get_all_records()
-            linhas_itens = [i + 2 for i, r in enumerate(itens_data)
-                            if str(r.get("NR_PED")) == str(nr_ped)]
-            for linha in reversed(linhas_itens):
-                itens_ws.delete_rows(linha)
-
-            for item in itens:
-                itens_ws.append_row([
+            itens_rows = [
+                [
                     nr_ped,
                     item.get("produto", ""),  # PRODUTO
                     item.get("qtde", ""),     # QTD_ITEM
@@ -1039,26 +1096,26 @@ def editar_pedido(nr_ped):
                     item.get("valor", ""),    # VLR_COB
                     "",                       # TOTAL_PROD (calculada)
                     item.get("obs", "")       # OBS_ITEM
-                ], value_input_option="USER_ENTERED")
+                ]
+                for item in itens
+            ]
+            replace_detail_rows(itens_ws, 1, nr_ped, itens_rows)
 
             # =====================================================
             # 🟢 CUSTOS (TERCEIRIZAÇÃO)
             # =====================================================
-            custos_data = custos_ws.get_all_records()
-            linhas_custos = [i + 2 for i, r in enumerate(custos_data)
-                             if str(r.get("NR_PED")) == str(nr_ped)]
-            for linha in reversed(linhas_custos):
-                custos_ws.delete_rows(linha)
-
-            for custo in custos:
-                custos_ws.append_row([
+            custos_rows = [
+                [
                     nr_ped,
                     custo.get("desc", ""),     # DESC_CUSTO
                     custo.get("qtd", ""),      # QTD_CUSTO
                     custo.get("valor", ""),    # VLR_UN_CUSTO
                     "",                        # VLR_TOT_CUSTO (calculada)
                     custo.get("obs", "")       # OBS_CUSTO
-                ], value_input_option="USER_ENTERED")
+                ]
+                for custo in custos
+            ]
+            replace_detail_rows(custos_ws, 1, nr_ped, custos_rows)
 
             # ✅ Após salvar tudo
             flash(f"✅ Pedido #{nr_ped} atualizado com sucesso!", "sucesso")
@@ -1154,18 +1211,6 @@ def editar_pedido(nr_ped):
 def excluir_pedido(nr_ped):
     try:
         app.logger.info(f"[EXCLUIR_PEDIDO] Iniciando exclusão do pedido {nr_ped}")
-
-        def agrupar_consecutivas(seq):
-            seq = sorted(seq)
-            grupos, grupo = [], [seq[0]]
-            for i in seq[1:]:
-                if i == grupo[-1] + 1:
-                    grupo.append(i)
-                else:
-                    grupos.append(grupo)
-                    grupo = [i]
-            grupos.append(grupo)
-            return grupos
 
         excluidos = {"pedidos": 0, "itens": 0, "custos": 0, "status": 0}
 

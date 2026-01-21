@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Status do Pedido</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* Estilos do arquivo original mantidos */
+    .status-container { max-width: 900px; margin: 20px auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .status-header { text-align: center; color: #333; margin-bottom: 20px; }
+    .table-wrapper { width: 100%; overflow-x: auto; margin-bottom: 30px; border: 1px solid #eee; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 600; color: #555; }
+    .status-form { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-top: 20px; }
+    .status-form h3 { margin-top: 0; margin-bottom: 15px; color: #007bff; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }
+    .form-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+    .form-row label { display: flex; flex-direction: column; font-weight: 500; font-size: 0.9rem; color: #555; }
+    input, select, textarea { margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+    button { cursor: pointer; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; transition: background 0.2s; }
+    button[type="submit"] { background: #28a745; color: white; }
+    button[type="submit"]:hover { background: #218838; }
+    .cancel-btn { background: #6c757d; color: white; margin-left: 10px; }
+    .delete-btn { background: #dc3545; color: white; margin-left: auto; float: right; }
+    .edit-btn { background: none; border: none; font-size: 1.2rem; padding: 0; cursor: pointer; }
+    .back-btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+    .flash-messages { margin-bottom: 20px; }
+    .flash { padding: 10px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold; }
+    .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+  </style>
+</head>
+<body>
+
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-text">Processando, aguarde...</div>
+      <div class="progress-container">
+        <div class="progress-bar-animated"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div class="logo">
+      <a href="{{ url_for('dashboard.index') }}"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo"></a>
+    </div>
+    <div class="user-info">
+      <span>👤 {{ usuario }}</span>
+      <a href="{{ url_for('auth.logout') }}" class="btn-small">Sair</a>
+    </div>
+  </div>
+
+  <div class="status-container">
+    <h2 class="status-header">Histórico do Pedido #{{ "%02d"|format(nr_ped|int) }}</h2>
+
+    {% if itens %}
+    <div class="table-wrapper">
+      <table class="itens-table">
+        <thead><tr><th>Produto</th><th>Qtd</th><th>Cor</th><th>Valor</th><th>Total</th><th>Obs</th></tr></thead>
+        <tbody>
+          {% for item in itens %}
+          <tr>
+            <td>{{ item.PRODUTO }}</td><td>{{ item.QTD_ITEM }}</td><td>{{ item.COR }}</td><td>{{ item.VLR_COB }}</td><td>{{ item.TOTAL_VIEW or item.TOTAL_PROD }}</td><td>{{ item.OBS_ITEM }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="table-wrapper">
+      <table class="status-table">
+        <thead><tr><th width="50"></th><th>Status</th><th>Data/Hora Início</th><th>Prazo</th><th>Data/Hora Prazo</th><th>Obs</th><th>Registro</th></tr></thead>
+        <tbody>
+          {% for h in historico %}
+          <tr>
+            <td class="edit-cell"><button class="edit-btn" onclick="editarHistorico('{{ h.STATUS_HIST }}','{{ h.DT_HR_STATUS }}','{{ h.PRAZO_STATUS }}','{{ h.DT_HR_PRAZO }}','{{ h.OBS_STATUS }}','{{ h.row_index }}')">✏️</button></td>
+            <td><strong>{{ h.STATUS_HIST }}</strong></td>
+            <td>{{ h.DT_HR_STATUS }}</td>
+            <td>{% if h.PRAZO_STATUS %}{{ h.PRAZO_STATUS }} dias{% endif %}</td>
+            <td>{{ h.DT_HR_PRAZO }}</td>
+            <td>{{ h.OBS_STATUS }}</td>
+            <td style="font-size:0.85em; color:#666;">{{ h.USUARIO }}<br>{{ h.DATA_HORA }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" class="status-form" id="status-form" onsubmit="showLoading('Salvando Status...')">
+      <h3 id="form-title">➕ Incluir Novo Status</h3>
+      <input type="hidden" id="row_index" name="row_index">
+
+      <div class="form-row">
+        <label style="flex:1">
+          Status:
+          <select name="status" id="status" required>
+            <option value="">-- selecione --</option>
+            {% for s in status_options %}
+                <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="form-row prazo-row">
+        <label>Data/Hora Início:<input type="datetime-local" name="dt_hr_status" id="dt_hr_status" value="{{ now_str }}" required></label>
+        <label id="label-prazo" style="display:none;">Prazo (dias):<input type="number" name="prazo" id="prazo" min="0" max="99"></label>
+      </div>
+
+      <div class="form-row">
+        <label style="flex:1">Observações:<textarea name="obs" id="obs" rows="3"></textarea></label>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
+        <div>
+            <button type="submit" id="save-btn">💾 Salvar</button>
+            <button type="button" class="cancel-btn" onclick="resetarFormulario()">Cancelar</button>
+        </div>
+        <button type="submit" form="delete-form" id="delete-btn" class="delete-btn" style="display:none;">🗑️ Excluir</button>
+      </div>
+    </form>
+
+    <form method="POST" id="delete-form" style="display:none;" onsubmit="if(confirmarExclusao()) { showLoading('Excluindo...'); return true; } else { return false; }"></form>
+
+    <div style="margin-top:20px; text-align:center;">
+      <a href="#" class="back-btn">⬅ Voltar</a>
+    </div>
+  </div>
+
+  <script>
+    const nr_ped = "{{ nr_ped }}";
+
+    // CONTROLE DE LOADING
+    function showLoading(msg) {
+        document.querySelector(".loading-text").textContent = msg || "Processando...";
+        document.getElementById("loadingOverlay").classList.add("active");
+    }
+
+    function editarHistorico(status, dt_hr_status, prazo, dt_hr_prazo, obs, row_index) {
+      document.getElementById("form-title").textContent = "✏️ Editar Status";
+      document.getElementById("save-btn").textContent = "🔄 Atualizar";
+      document.getElementById("status").value = status;
+      document.getElementById("status").dispatchEvent(new Event('change'));
+      document.getElementById("dt_hr_status").value = formatarInputDateTime(dt_hr_status);
+      document.getElementById("prazo").value = prazo;
+      document.getElementById("obs").value = obs;
+      document.getElementById("row_index").value = row_index;
+      document.getElementById("delete-btn").style.display = "inline-block";
+      document.getElementById("delete-form").action = `/status/${nr_ped}/delete/${row_index}`;
+      document.getElementById("status-form").scrollIntoView({ behavior: 'smooth' });
+    }
+  
+    function resetarFormulario() {
+      document.getElementById("form-title").textContent = "➕ Incluir Novo Status";
+      document.getElementById("save-btn").textContent = "💾 Salvar";
+      document.getElementById("status-form").reset();
+      document.getElementById("dt_hr_status").value = "{{ now_str }}"; 
+      document.getElementById("row_index").value = "";
+      document.getElementById("delete-btn").style.display = "none";
+      document.getElementById("delete-form").action = "";
+      document.getElementById("label-prazo").style.display = "none";
+    }
+
+    function formatarInputDateTime(str) {
+      if (!str) return "";
+      try {
+          const [d, t] = str.split(" ");
+          const [day, month, year] = d.split("/");
+          const time = t.substring(0, 5); 
+          return `${year}-${month}-${day}T${time}`;
+      } catch (e) { return ""; }
+    }
+
+    function confirmarExclusao() {
+      return confirm("⚠️ Deseja realmente excluir este histórico?");
+    }
+
+    const statusPrazoObrig = {
+      {% for s in status_options %}
+      "{{ s }}": "{{ status_prazo_obrig.get(s, '') }}",
+      {% endfor %}
+    };
+
+    document.getElementById("status").addEventListener("change", function() {
+      const statusSelecionado = this.value;
+      const labelPrazo = document.getElementById("label-prazo");
+      const inputPrazo = document.getElementById("prazo");
+      if (statusPrazoObrig[statusSelecionado] === "S") {
+        labelPrazo.style.display = "flex"; inputPrazo.required = true;
+      } else if (statusPrazoObrig[statusSelecionado] === "N") {
+        inputPrazo.value = ""; labelPrazo.style.display = "none"; inputPrazo.required = false;
+      } else {
+        labelPrazo.style.display = "flex"; inputPrazo.required = false;
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const voltarBtn = document.querySelector(".back-btn");
+      if (voltarBtn) {
+        voltarBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const ultima = sessionStorage.getItem("ultima_rota");
+          window.location.href = (ultima && (ultima.includes("/detalhes") || ultima === "/")) ? ultima : "{{ url_for('dashboard.index') }}";
+        });
+      }
+      resetarFormulario();
+    });
+  </script>
+</body>
+</html>

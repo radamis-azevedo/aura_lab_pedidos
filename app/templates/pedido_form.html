@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>{% if modo == 'editar' %}Editar Pedido #{{ "%02d"|format(nr_ped|int) }}{% else %}Novo Pedido{% endif %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* Estilos Específicos do Formulário */
+    input, select, textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="number"], .num { text-align: right; font-weight: bold; }
+    .btn-add { padding: 4px 8px; font-size: 0.9em; margin-left: 6px; cursor: pointer; }
+    .table-wrapper { width: 100%; overflow-x: auto; margin-top: 10px; border: 1px solid #eee; border-radius: 6px; }
+    .itens-table th, .itens-table td { white-space: nowrap; padding: 8px; text-align: left; }
+    
+    .feedback-box { display:none; margin:15px 0; padding:12px; border-radius:8px; font-weight:500; text-align:center; }
+    .feedback-box.sucesso { background:#d4edda; color:#155724; border: 1px solid #c3e6cb; }
+    .feedback-box.erro { background:#f8d7da; color:#721c24; border: 1px solid #f5c6cb; }
+    .feedback-box.alerta { background:#fff3cd; color:#856404; border: 1px solid #ffeeba; }
+
+    .switch { position: relative; display: inline-block; width: 40px; height: 20px; vertical-align: middle; margin-left: 10px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #2196F3; }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Popups */
+    .popup-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.4s ease; z-index: 9999; backdrop-filter: blur(2px);
+    }
+    .popup-overlay.visible { opacity: 1; }
+    .popup-overlay.fade-out { opacity: 0; }
+    .popup-content {
+      background: #fff; padding: 30px; border-radius: 12px; max-width: 420px; width: 90%; text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateY(-20px); animation: slideUp 0.4s ease forwards;
+    }
+    @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .popup-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+    .popup-buttons .btn { background: #007bff; color: #fff; border: none; border-radius: 6px; padding: 12px; cursor: pointer; transition: background 0.2s; font-size: 1rem; }
+    .popup-buttons .btn:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-text">Processando, aguarde...</div>
+      <div class="progress-container">
+        <div class="progress-bar-animated"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div class="logo">
+      <a href="{{ url_for('dashboard.index') }}"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo"></a>
+    </div>
+    <div class="user-info">
+      <span>👤 {{ usuario }}</span>
+      <a href="{{ url_for('auth.logout') }}" class="btn-small">Sair</a>
+    </div>
+  </div>
+
+  <div class="status-container">
+    <h2 class="status-header">
+      {% if modo == 'editar' %}✏️ Editar Pedido #{{ "%02d"|format(nr_ped|int) }}{% else %}➕ Cadastrar Novo Pedido{% endif %}
+    </h2>
+
+    <div id="feedback" class="feedback-box"></div>
+
+    <form id="pedidoForm" method="POST" class="status-form">
+      <div class="form-row">
+        <label>
+          Data do Pedido:
+          {% if modo == 'editar' %}
+            <input type="datetime-local" id="dt_pedido_display" value="{{ dt_pedido }}" class="input-readonly" disabled>
+            <input type="hidden" id="dt_pedido" name="dt_pedido" value="{{ dt_pedido }}">
+          {% else %}
+            <input type="datetime-local" id="dt_pedido" name="dt_pedido" value="{{ dt_pedido }}" required>
+          {% endif %}
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>
+          Cliente:
+          <select name="cliente" id="cliente" required>
+            <option value="">-- selecione --</option>
+            {% for c in clientes %}
+              <option value="{{ c }}" {% if c == cliente_atual %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>Paciente: <input type="text" name="paciente" id="paciente" value="{{ paciente_atual }}" required></label>
+      </div>
+
+      <div class="form-row">
+        <label>Observação: <input type="text" name="obs_ped" id="obs_ped" value="{{ obs_atual }}"></label>
+      </div>
+
+      <h3>Itens do Pedido</h3>
+      <div class="form-row">
+        <label style="flex:1">
+          Produto:
+          <select id="produto">
+            <option value="">-- selecione --</option>
+            {% for p in produtos %}
+              <option value="{{ p.PRODUTO }}" data-vlr="{{ p.VLR_CAT }}">{{ p.PRODUTO }} - {{ p.VLR_CAT }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="form-row same-line">
+        <label>Cor: <input type="text" id="cor"></label>
+        <label>Qtd: <input type="number" id="qtde" min="1"></label>
+        <label>Valor: <input type="text" id="valor_cobrado" class="num"></label>
+      </div>
+      <div class="form-row same-line">
+        <label style="flex:1">Obs: <input type="text" id="obs_item"></label>
+        <button type="button" class="btn-small add-btn" onclick="adicionarItem()">➕ Adicionar</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="itens-table big-table" id="tabela-itens">
+          <thead><tr><th>Produto</th><th>Qtd</th><th>Cor</th><th>Valor</th><th>Total</th><th>Obs</th><th></th></tr></thead>
+          <tbody>
+            {% for i in itens %}
+            <tr data-json='{{ {"produto":i.PRODUTO,"qtde":i.QTD_ITEM,"cor":i.COR,"valor":i.VLR_COB,"obs":i.OBS_ITEM}|tojson }}'>
+              <td>{{ i.PRODUTO }}</td><td>{{ i.QTD_ITEM }}</td><td>{{ i.COR }}</td><td>{{ i.VLR_COB }}</td><td>{{ i.TOTAL_VIEW}}</td><td>{{ i.OBS_ITEM }}</td>
+              <td><button type="button" onclick="removerLinha(this)">❌</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Terceirização
+        <label class="switch">
+          <input type="checkbox" id="toggle-custos" onchange="toggleCustos()" {% if custos and custos|length > 0 %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+      </h3>
+      <div id="custos-section" style="display:none;">
+        <div class="form-row same-line">
+          <label style="flex:1">Descrição: <input type="text" id="desc-custo"></label>
+          <label>Qtd: <input type="number" id="qtd-custo" min="1"></label>
+          <label>Valor Un: <input type="text" id="valor-custo" class="num"></label>
+        </div>
+        <div class="form-row same-line">
+          <label style="flex:1">Obs: <input type="text" id="obs-custo"></label>
+          <button type="button" class="btn-small add-btn" onclick="adicionarCusto()">➕ Adicionar</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="itens-table big-table" id="tabela-custos">
+            <thead><tr><th>Descrição</th><th>Total</th><th>Obs</th><th></th></tr></thead>
+            <tbody>
+              {% for c in custos %}
+              <tr data-json='{{ {"desc":c.DESC_CUSTO,"qtd":c.QTD_CUSTO,"valor":c.VLR_UN_CUSTO,"obs":c.OBS_CUSTO}|tojson }}'>
+                <td>{{ c.DESC_CUSTO }}</td><td>{{ c.TOTAL_VIEW }}</td><td>{{ c.OBS_CUSTO }}</td>
+                <td><button type="button" onclick="removerLinha(this)">❌</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <input type="hidden" name="itens_json" id="itens_json">
+      <input type="hidden" name="custos_json" id="custos_json">
+
+      <div class="form-row" style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button id="btnSalvar" type="submit" class="btn">💾 Salvar</button>
+        {% if modo == 'editar' %}
+        <button type="button" class="btn-delete" onclick="excluirPedido('{{ nr_ped }}')">🗑️ Excluir Pedido</button>
+        {% endif %}
+        <a href="{{ url_for('dashboard.index') }}" class="cancel-btn">⬅ Voltar</a>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const ROTAS = {
+      novoPedido: "{{ url_for('orders.novo_pedido') }}",
+      dashboard: "{{ url_for('dashboard.index') }}"
+    };
+    let estadoInicial = {};
+    const feedback = document.getElementById("feedback");
+    const btnSalvar = document.getElementById("btnSalvar");
+    
+    // Controle do Loading
+    function showLoading(msg) {
+        document.querySelector(".loading-text").textContent = msg || "Processando...";
+        document.getElementById("loadingOverlay").classList.add("active");
+    }
+    function hideLoading() {
+        document.getElementById("loadingOverlay").classList.remove("active");
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      estadoInicial = capturarEstadoAtual();
+      {% if modo == 'novo' %}
+        btnSalvar.disabled = true; 
+        document.getElementById("toggle-custos").checked = false;
+      {% endif %}
+      toggleCustos();
+
+      const voltarBtn = document.querySelector(".cancel-btn");
+      if (voltarBtn) {
+        voltarBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const ultima = sessionStorage.getItem("ultima_rota");
+          window.location.href = (ultima && (ultima.includes("/detalhes") || ultima === "/")) ? ultima : ROTAS.dashboard;
+        });
+      }
+    });
+
+    function capturarEstadoAtual() {
+      const cliente = document.getElementById("cliente")?.value || "";
+      const paciente = document.getElementById("paciente")?.value || "";
+      const obs = document.getElementById("obs_ped")?.value || "";
+      const itens = Array.from(document.querySelectorAll("#tabela-itens tbody tr")).map(tr => JSON.parse(tr.dataset.json || "{}"));
+      const custos = Array.from(document.querySelectorAll("#tabela-custos tbody tr")).map(tr => JSON.parse(tr.dataset.json || "{}"));
+      return { cliente, paciente, obs, itens, custos };
+    }
+    function houveAlteracao() { return JSON.stringify(capturarEstadoAtual()) !== JSON.stringify(estadoInicial); }
+
+    function mostrarMensagem(msg, tipo="alerta") {
+      feedback.textContent = msg;
+      feedback.className = "feedback-box " + tipo;
+      feedback.style.display = "block";
+      if(tipo !== 'erro') setTimeout(() => { feedback.style.display = "none"; }, 5000);
+    }
+
+    // (Funções de Adicionar Item/Custo mantidas iguais - omitidas para brevidade, mas devem estar aqui)
+    // ... [CÓDIGO DE ADICIONAR ITEM AQUI] ...
+    document.getElementById("produto").addEventListener("change", function() {
+      const opt = this.options[this.selectedIndex];
+      if(opt.getAttribute("data-vlr")) document.getElementById("valor_cobrado").value = opt.getAttribute("data-vlr").replace(/[R$\s]/g, "");
+    });
+    function adicionarItem() {
+        /* ... Lógica igual ao anterior ... */
+        // SIMPLIFICADO PARA O EXEMPLO - MANTENHA O SEU ORIGINAL
+        const produto = document.getElementById("produto").value;
+        if(!produto) return;
+        // ...criação da linha...
+        const tbody = document.querySelector("#tabela-itens tbody");
+        const tr = document.createElement("tr");
+        /* ... */
+        // Apenas para exemplo, re-cole sua função adicionarItem aqui se necessário, mas o foco é o submit abaixo.
+        btnSalvar.disabled = false;
+    }
+    // Certifique-se de manter as funções adicionarItem, adicionarCusto, removerLinha originais.
+    // Vou reinserir as funções completas para garantir que funcione ao copiar e colar.
+    function adicionarItem() {
+      const produto = document.getElementById("produto").value.trim();
+      const qtde = document.getElementById("qtde").value.trim();
+      const cor = document.getElementById("cor").value.trim();
+      const valor = document.getElementById("valor_cobrado").value.trim();
+      const obs = document.getElementById("obs_item").value.trim();
+      if (!produto || !qtde || !valor) { mostrarMensagem("⚠️ Informe Produto, Qtd e Valor!", "alerta"); return; }
+      const q = parseFloat(qtde.replace(",", ".")) || 0;
+      const v = parseFloat(valor.replace(",", ".")) || 0;
+      const total = (q * v).toFixed(2).replace(".", ",");
+      const tbody = document.querySelector("#tabela-itens tbody");
+      const tr = document.createElement("tr");
+      tr.dataset.json = JSON.stringify({ produto, qtde, cor, valor, obs });
+      tr.innerHTML = `<td>${produto}</td><td>${qtde}</td><td>${cor}</td><td>${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td><td>${total.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td><td>${obs}</td><td><button type="button" onclick="removerLinha(this)">❌</button></td>`;
+      tbody.appendChild(tr);
+      document.getElementById("produto").value = ""; document.getElementById("qtde").value = ""; document.getElementById("cor").value = ""; document.getElementById("valor_cobrado").value = ""; document.getElementById("obs_item").value = ""; document.getElementById("produto").focus();
+      btnSalvar.disabled = false;
+    }
+    function adicionarCusto() {
+      const desc = document.getElementById("desc-custo").value.trim();
+      const qtd = document.getElementById("qtd-custo").value.trim();
+      const valor = document.getElementById("valor-custo").value.trim();
+      const obs = document.getElementById("obs-custo").value.trim();
+      if (!desc || !qtd || !valor) { mostrarMensagem("⚠️ Informe Descrição, Qtd e Valor!", "alerta"); return; }
+      const q = parseFloat(qtd.replace(",", ".")) || 0; const v = parseFloat(valor.replace(",", ".")) || 0; const total = (q * v).toFixed(2).replace(".", ",");
+      const tbody = document.querySelector("#tabela-custos tbody");
+      const tr = document.createElement("tr");
+      tr.dataset.json = JSON.stringify({ desc, qtd, valor, obs });
+      tr.innerHTML = `<td>${desc}</td><td>${total}</td><td>${obs}</td><td><button type="button" onclick="removerLinha(this)">❌</button></td>`;
+      tbody.appendChild(tr);
+      document.getElementById("desc-custo").value=""; document.getElementById("qtd-custo").value=""; document.getElementById("valor-custo").value=""; document.getElementById("obs-custo").value="";
+    }
+    function removerLinha(btn) { btn.closest("tr").remove(); if(document.querySelectorAll("#tabela-itens tbody tr").length===0) btnSalvar.disabled=true; }
+    function toggleCustos() { document.getElementById("custos-section").style.display = document.getElementById("toggle-custos").checked ? "block" : "none"; }
+    
+    function prepararEnvio() {
+      const itens = Array.from(document.querySelectorAll("#tabela-itens tbody tr")).map(tr => JSON.parse(tr.dataset.json));
+      const custos = Array.from(document.querySelectorAll("#tabela-custos tbody tr")).map(tr => JSON.parse(tr.dataset.json));
+      if (itens.length === 0) { mostrarMensagem("⚠️ Inclua pelo menos um item.", "erro"); return false; }
+      document.getElementById("itens_json").value = JSON.stringify(itens);
+      document.getElementById("custos_json").value = JSON.stringify(custos);
+      return true;
+    }
+
+    // === SUBMIT COM LOADING ===
+    document.getElementById("pedidoForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!prepararEnvio()) return;
+      if (!houveAlteracao()) { mostrarMensagem("⚠️ Nenhuma alteração.", "alerta"); return; }
+
+      const formData = new FormData(e.target);
+      
+      // Ativa Loading
+      showLoading("Salvando Pedido...");
+      btnSalvar.disabled = true;
+
+      try {
+        const response = await fetch(window.location.pathname, { method: "POST", body: formData });
+        const result = await response.json();
+        hideLoading(); // Esconde Loading
+
+        if (result.sucesso) {
+          {% if modo == 'editar' %} mostrarPopupEdicao(result.nr_ped);
+          {% else %} mostrarPopupSucesso(result.nr_ped);
+          {% endif %}
+        } else {
+          mostrarMensagem("❌ " + (result.erro || "Erro ao salvar."), "erro");
+          btnSalvar.disabled = false;
+        }
+      } catch (err) {
+        hideLoading();
+        mostrarMensagem("❌ Erro de conexão.", "erro");
+        btnSalvar.disabled = false;
+      }
+    });
+
+    // === EXCLUSÃO COM LOADING ===
+    async function excluirPedido(nr_ped) {
+      if (!confirm(`⚠️ Deseja realmente excluir o pedido #${nr_ped}?`)) return;
+
+      showLoading("Excluindo..."); // Ativa loading
+
+      try {
+        const resp = await fetch(`/api/excluir_pedido/${nr_ped}`, { method: "DELETE" });
+        const data = await resp.json();
+        hideLoading();
+
+        if (data.ok) {
+          mostrarPopupExclusao(nr_ped, data.msg);
+        } else {
+          mostrarMensagem("❌ Erro: " + data.msg, "erro");
+        }
+      } catch (e) {
+        hideLoading();
+        mostrarMensagem("❌ Falha na comunicação.", "erro");
+      }
+    }
+
+    // Popups e Helpers
+    function fecharPopup(callback) {
+      const popup = document.querySelector(".popup-overlay");
+      if (!popup) return;
+      popup.classList.remove("visible");
+      setTimeout(() => { popup.remove(); if (callback) callback(); }, 400);
+    }
+    function mostrarPopupSucesso(nr_ped) {
+      const popup = document.createElement("div");
+      popup.classList.add("popup-overlay");
+      popup.innerHTML = `<div class="popup-content"><h3>✅ Pedido #${nr_ped} incluído!</h3><div class="popup-buttons"><button onclick="fecharPopup(() => window.location.href='${ROTAS.novoPedido}')" class="btn">➕ Novo Pedido</button><button onclick="fecharPopup(() => irParaStatus(${nr_ped}))" class="btn">🔄 Atualizar STATUS</button><button onclick="fecharPopup(() => window.location.href='${ROTAS.dashboard}')" class="btn">🏠 Início</button></div></div>`;
+      document.body.appendChild(popup); requestAnimationFrame(()=>popup.classList.add("visible"));
+    }
+    function mostrarPopupEdicao(nr_ped) {
+      const popup = document.createElement("div");
+      popup.classList.add("popup-overlay");
+      popup.innerHTML = `<div class="popup-content"><h3>✅ Atualizado!</h3><div class="popup-buttons"><button onclick="fecharPopup(() => voltarTelaAnterior())" class="btn">⬅ Voltar</button><button onclick="fecharPopup(() => irParaStatus(${nr_ped}))" class="btn">🔄 Status</button></div></div>`;
+      document.body.appendChild(popup); requestAnimationFrame(()=>popup.classList.add("visible"));
+    }
+    function mostrarPopupExclusao(nr_ped, msg) {
+      const popup = document.createElement("div");
+      popup.classList.add("popup-overlay");
+      popup.innerHTML = `<div class="popup-content"><h3>🗑️ Excluído</h3><p>${msg}</p><div class="popup-buttons"><button onclick="fecharPopup(() => window.location.href='${ROTAS.dashboard}')" class="btn">🏠 Início</button></div></div>`;
+      document.body.appendChild(popup); requestAnimationFrame(()=>popup.classList.add("visible"));
+    }
+    function voltarTelaAnterior() {
+      const ultima = sessionStorage.getItem("ultima_rota");
+      window.location.href = (ultima && ultima !== window.location.pathname) ? ultima : ROTAS.dashboard;
+    }
+    function irParaStatus(nr_ped) {
+        const ultima = sessionStorage.getItem("ultima_rota");
+        if (!ultima || (!ultima.includes("/detalhes") && ultima !== "/")) sessionStorage.setItem("ultima_rota", "/");
+        window.location.href = `/status/${nr_ped}`;
+    }
+  </script>
+</body>
+</html>

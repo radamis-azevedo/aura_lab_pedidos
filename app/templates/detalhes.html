@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Pedidos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <div class="logo">
+        <a href="{{ url_for('dashboard.index') }}">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+        </a>
+      </div>
+      {% if usuario %}
+      <div class="user-info">
+        <span>👤 {{ usuario }}</span>
+        <a href="{{ url_for('auth.logout') }}" class="btn-small">Sair</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 class="titulo-detalhes {{ tipo }}">{{ filtro }}</h2>
+      <div class="view-switcher">
+        <a href="{{ url_for('orders.detalhes', tipo=tipo, filtro=filtro|lower, modo='lista') }}" 
+           class="view-btn {% if modo_view == 'lista' %}active{% endif %}">📄 Lista</a>
+        <a href="{{ url_for('orders.detalhes', tipo=tipo, filtro=filtro|lower, modo='cards') }}" 
+           class="view-btn {% if modo_view == 'cards' %}active{% endif %}">🃏 Cards</a>
+      </div>
+    </div>
+    <hr>
+
+    {% if tipo == "porcliente" %}
+    <div class="switch-box">
+      <label class="switch">
+        <input type="checkbox" id="toggle-entregues" {% if "todos" in filtro|lower %}checked{% endif %}>
+        <span class="slider round"></span>
+      </label>
+      <span class="switch-label">Mostrar pedidos entregues</span>
+    </div>
+    {% endif %}
+
+    {% if modo_view == 'lista' %}
+      {% if agrupado %}
+        {% for cliente, pedidos in agrupado.items() %}
+          <div class="card cliente {{ tipo }}">
+            <h3>{{ cliente }}</h3>
+            <div class="table-wrapper">
+              <table class="tabela-detalhes">
+                <thead>
+                  <tr>
+                    <th class="col-btn"></th>
+                    <th>#</th>
+                    <th>Status</th>
+                    <th>Paciente</th>
+                    <th>Data Ped</th>
+                    <th>Prazo</th>
+                    <th style="text-align:right;">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in pedidos %}
+                  <tr class="accordion-row pedido-row {% if p.STATUS|lower == 'entregue' %}entregue{% endif %}">
+                    <td><button class="accordion-btn" onclick="toggleItensLista('{{ p.NR_PED }}')">+</button></td>
+                    <td><a href="{{ url_for('orders.editar_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="pedido-link">{{ "%02d"|format(p.NR_PED|int) }}</a></td>
+                    <td>
+                      {{ p.STATUS }}
+                      {% set pago = (p.PAGO|string).strip().lower() == 'sim' %}
+                      {% if pago %}
+                        <span title="Pago">💳</span>
+                      {% else %}
+                        <span title="Não Pago">💰</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ p.PACIENTE }}</td>
+                    <td>{{ p.DT_PED|format_date_br }}</td>
+                    <td>{{ p.DT_PRAZO|format_date_br }}</td>
+                    <td style="text-align:right;">{{ p.VLR_NUM|format_brl }}</td>
+                  </tr>
+                  <tr id="itens-lista-{{ p.NR_PED }}" class="accordion-content">
+                    <td colspan="7"><div class="accordion-box conteudo-itens"><em>Carregando...</em></div></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>Nenhum pedido encontrado.</p>
+      {% endif %}
+
+    {% else %}
+      {% if agrupado %}
+        {% for cliente, pedidos in agrupado.items() %}
+          
+          <div class="client-header-card">{{ cliente }}</div>
+          
+          <div class="client-body-card">
+            {% for p in pedidos %}
+            <div class="order-card">
+              <div class="order-card-header">
+                <span>Pedido #{{ "%02d"|format(p.NR_PED|int) }}</span>
+                <span>{{ p.VLR_NUM|format_brl }}</span>
+              </div>
+              
+              <div class="order-card-body">
+                
+                <div>
+                  <span class="oc-label">Data:</span> 
+                  <span class="oc-val">{{ p.DT_PED|format_date_br }}</span>
+                </div>
+
+                <div>
+                  <span class="oc-label">Prazo:</span> 
+                  <span class="oc-val">{{ p.DT_PRAZO|format_date_br }}</span>
+                  
+                  {% if p.DIAS_DELTA is not none and p.STATUS|lower != 'entregue' %}
+                    {% if p.DIAS_DELTA < 0 %}
+                      <span class="badge-prazo bg-late">Atrasado {{ p.DIAS_DELTA|abs }} dias</span>
+                    {% elif p.DIAS_DELTA == 0 %}
+                      <span class="badge-prazo bg-today">É Hoje!</span>
+                    {% elif p.DIAS_DELTA <= 2 %}
+                      <span class="badge-prazo bg-today">Faltam {{ p.DIAS_DELTA }} dias</span>
+                    {% else %}
+                      <span class="badge-prazo bg-ok">{{ p.DIAS_DELTA }} dias</span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+
+                <div>
+                  <div class="status-highlight {% if 'atrasado' in p.STATUS|lower %}atrasado{% endif %}">
+                    {{ p.STATUS }}
+                  </div>
+                </div>
+
+                <div style="margin-top: 5px;">
+                  <span class="oc-label">Paciente:</span> 
+                  <strong style="color:#333; font-size: 1rem;">{{ p.PACIENTE }}</strong>
+                </div>
+                
+                {% if p.OBS_PED %}
+                <div style="font-style:italic; font-size:0.85em; color:#777;">
+                  Obs: {{ p.OBS_PED }}
+                </div>
+                {% endif %}
+
+                <div class="link-expand" onclick="toggleCardItens('{{ p.NR_PED }}')">
+                  📦 Produtos e Terceirizações +
+                </div>
+
+                <div class="action-row-bottom">
+                  <a href="{{ url_for('orders.status_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="action-link link-hist">
+                    🕒 Histórico
+                  </a>
+                   <a href="{{ url_for('orders.editar_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="action-link link-edit">
+                    ✏️ Editar
+                  </a>
+                </div>
+
+                <div id="card-itens-{{ p.NR_PED }}" class="card-expand-content">
+                  <em>Carregando detalhes...</em>
+                </div>
+
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>Nenhum pedido encontrado.</p>
+      {% endif %}
+    {% endif %}
+
+    <a href="{{ url_for('dashboard.index') }}" class="btn" style="margin-top:20px;">⬅ Voltar</a>
+  </div>
+
+  <script>
+    // Javascript Unificado
+    function toggleItensLista(nr_ped) {
+      const row = document.getElementById("itens-lista-" + nr_ped);
+      alternarExibicao(row, nr_ped, ".conteudo-itens");
+    }
+
+    function toggleCardItens(nr_ped) {
+      const div = document.getElementById("card-itens-" + nr_ped);
+      alternarExibicao(div, nr_ped, null); // null pq o div ja é o container
+    }
+
+    function alternarExibicao(elemento, nr_ped, selectorInterno) {
+      const isHidden = (elemento.style.display === "none" || elemento.style.display === "");
+      const displayMode = elemento.tagName === "TR" ? "table-row" : "block";
+      
+      if (isHidden) {
+        elemento.style.display = displayMode;
+        const container = selectorInterno ? elemento.querySelector(selectorInterno) : elemento;
+        carregarConteudo(nr_ped, container);
+      } else {
+        elemento.style.display = "none";
+      }
+    }
+
+    function carregarConteudo(nr_ped, container) {
+      if (container.innerHTML.includes("Carregando") || container.innerHTML.trim() === "") {
+        fetch(`/itens/${nr_ped}`)
+          .then(r => r.text())
+          .then(html => container.innerHTML = html)
+          .catch(e => container.innerHTML = "<p style='color:red'>Erro ao carregar.</p>");
+      }
+    }
+
+    const toggle = document.getElementById("toggle-entregues");
+    if (toggle) {
+      toggle.addEventListener("change", function() {
+        const modoAtual = "{{ modo_view }}";
+        const filtroDestino = this.checked ? 'todos' : 'naoentregues';
+        window.location.href = `{{ url_for('orders.detalhes', tipo='porcliente', filtro='') }}${filtroDestino}?modo=${modoAtual}`;
+      });
+    }
+  </script>
+</body>
+</html>

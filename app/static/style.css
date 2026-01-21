@@ -1012,3 +1012,306 @@ body {
 #card-status ul.list {
   margin-top: 5px;
 }
+
+/* =========================================
+   VISÃO DE CARDS (DETALHES)
+   ========================================= */
+
+/* Cabeçalho do Cliente (Estilo Print) */
+.client-header-card {
+    background-color: #4a90e2; /* Azul bonito */
+    color: white;
+    padding: 15px;
+    font-size: 1.3em;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 8px 8px 0 0;
+    margin-top: 30px;
+}
+
+/* Container cinza que segura os cards */
+.client-body-card {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-top: none;
+    padding: 20px;
+    border-radius: 0 0 8px 8px;
+    display: grid;
+    /* Grid responsivo: cria colunas automaticamente */
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+/* O Card do Pedido individual */
+/* =========================================
+   NOVO ESTILO DO CARD (Mais Limpo e Compacto)
+   ========================================= */
+
+.order-card {
+    background: #fff;
+    border: 1px solid #e0e0e0; /* Borda cinza suave em vez de azul forte */
+    border-radius: 12px;       /* Cantos bem arredondados */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* Sombra leve e elegante */
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.order-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+}
+
+.order-card-header {
+    background-color: #f1f8ff; /* Azul muito suave */
+    color: #0056b3;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e1e4e8;
+}
+
+.order-card-body {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+    color: #444;
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* Espaço menor entre linhas para diminuir altura */
+}
+
+/* Utilitário para colocar coisas na mesma linha */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* Garante que não quebre em telas muito pequenas */
+}
+
+/* Estilo dos Links de Ação */
+.action-row {
+    display: flex;
+    justify-content: space-between; /* Espalha os botões */
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #eee;
+    gap: 10px;
+}
+
+.action-link {
+    cursor: pointer;
+    color: #0066cc;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.action-link:hover { color: #004499; text-decoration: underline; }
+
+.link-edit { color: #28a745; }
+.link-edit:hover { color: #1e7e34; }
+
+.link-hist { color: #e67e22; }
+.link-hist:hover { color: #d35400; }
+
+/* Ajuste fino nos labels */
+.oc-label { color: #888; font-weight: 500; font-size: 0.8rem; margin-right: 4px; }
+.oc-val { font-weight: 600; color: #333; }
+/* =========================================
+   ESTILO PROFISSIONAL PARA ITENS NO CARD
+   ========================================= */
+
+/* O Container que permite o scroll lateral */
+.scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;      /* Permite rolar para o lado */
+    -webkit-overflow-scrolling: touch; /* Rolagem suave no celular */
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-top: 10px;
+    background: #fff;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05); /* Sombra interna sutil */
+}
+
+/* A Tabela em si */
+.mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 500px; /* <--- O SEGREDO: Força a tabela a ter largura mínima, ativando o scroll */
+}
+
+/* Cabeçalho elegante */
+.mini-table th {
+    background-color: #f8f9fa;
+    color: #666;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 10px;
+    text-align: left;
+    border-bottom: 2px solid #eee;
+    white-space: nowrap; /* Não deixa o título quebrar linha */
+}
+
+/* Células */
+.mini-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.85rem;
+    color: #333;
+    vertical-align: middle;
+}
+
+/* Destaques e Alinhamentos */
+.mini-table td.num { text-align: right; font-family: 'Consolas', monospace; font-weight: 600; }
+.mini-table th.num { text-align: right; }
+.mini-table tr:last-child td { border-bottom: none; }
+
+/* Destaque visual na linha ao passar o mouse */
+.mini-table tbody tr:hover {
+    background-color: #fafafa;
+}
+
+/* Subtítulo dentro do popover (Produtos / Custos) */
+.mini-section-title {
+    font-size: 0.8rem;
+    color: #4a90e2;
+    font-weight: bold;
+    margin: 15px 0 5px 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* =========================================
+   ATUALIZAÇÃO DO CARD (Layout Vertical)
+   ========================================= */
+
+.order-card-body {
+    padding: 15px;
+    font-size: 0.9rem;
+    color: #444;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;          /* Espaçamento entre linhas */
+    text-align: left;  /* Alinhamento à esquerda */
+}
+
+/* Status com mais destaque */
+.status-highlight {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0056b3;
+    background: #e3f2fd;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #bbdefb;
+    margin-top: 2px;
+}
+.status-highlight.atrasado {
+    background: #ffebee;
+    color: #c62828;
+    border-color: #ffcdd2;
+}
+
+/* Badges de Prazo */
+.badge-prazo {
+    font-size: 0.8em;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.bg-late { background-color: #ffebee; color: #d32f2f; border: 1px solid #ffcdd2; }
+.bg-today { background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; }
+.bg-ok { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+
+/* Link Consolidado */
+.link-expand {
+    display: block;
+    background-color: #f8f9fa;
+    color: #333;
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    font-weight: 600;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.link-expand:hover { background-color: #e2e6ea; }
+
+/* Ajuste das linhas de ação inferiores */
+.action-row-bottom {
+    display: flex;
+    gap: 15px;
+    margin-top: 8px;
+    font-size: 0.85em;
+}
+
+/* =========================================
+   LOADING OVERLAY (PROCESSANDO...)
+   ========================================= */
+
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.9); /* Fundo branco semi-transparente */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999; /* Fica acima de tudo */
+    visibility: hidden; /* Escondido por padrão */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.loading-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+/* Barra de Progresso Indeterminada */
+.progress-container {
+    width: 250px;
+    height: 6px;
+    background-color: #e0e0e0;
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-animated {
+    width: 50%;
+    height: 100%;
+    background-color: #007bff; /* Azul do sistema */
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 3px;
+    animation: loading-bar 1.5s infinite ease-in-out;
+}
+
+@keyframes loading-bar {
+    0% { left: -50%; width: 50%; }
+    50% { left: 25%; width: 50%; }
+    100% { left: 100%; width: 50%; }
+}

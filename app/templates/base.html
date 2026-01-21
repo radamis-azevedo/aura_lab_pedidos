@@ -10,11 +10,13 @@
   {% if session.get('usuario') %}
   <div class="top-bar">
     <div class="logo">
-      <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+      <a href="{{ url_for('dashboard.index') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+      </a>
     </div>
     <div class="user-info">
       <span class="usuario">👤 {{ session['usuario'] }}</span>
-      <a href="{{ url_for('logout') }}" class="btn-small">Sair</a>
+      <a href="{{ url_for('auth.logout') }}" class="btn-small">Sair</a>
     </div>
   </div>
   {% endif %}

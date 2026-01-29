@@ -16,7 +16,6 @@ __pycache__/
 # Credenciais / Segredos
 # =========================
 secrets/
-credentials.json
 *credentials*.json
 *service-account*.json
 *gcp*.json

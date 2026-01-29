@@ -34,6 +34,7 @@ class SheetsDB:
             self.sheets['clientes'] = self.client.open_by_key(self.SHEET_ID_CADASTROS).worksheet("CLIENTES")
             self.sheets['produtos'] = self.client.open_by_key(self.SHEET_ID_CADASTROS).worksheet("PRODUTOS")
             self.sheets['cad_status'] = self.client.open_by_key(self.SHEET_ID_CADASTROS).worksheet("STATUS")
+            self.sheets['pagamentos'] = self.client.open_by_key(self.SHEET_ID_PEDIDOS).worksheet("PEDIDOS_PGTOS")
             
             print("✅ Conexão com Google Sheets estabelecida!")
         except Exception as e:

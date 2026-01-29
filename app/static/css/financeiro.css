@@ -1,0 +1,237 @@
+/* app/static/css/financeiro.css */
+
+.finance-container {
+    max-width: 600px;
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* Suavização de fonte para Mac/iOS ficarem mais bonitos */
+    -webkit-font-smoothing: antialiased; 
+}
+
+/* Card Principal */
+.custom-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    padding: 24px;
+    border: 1px solid #f0f0f0;
+}
+
+/* Dropdown */
+.search-box {
+    margin-bottom: 24px;
+}
+.search-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    font-size: 1rem;
+    background-color: #f8f9fa;
+    appearance: none; /* Remove estilo padrão nativo */
+    -webkit-appearance: none; /* Safari/iOS */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
+}
+
+/* --- RESUMO (KPIs) --- */
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    gap: 0; /* Zero gap para aproveitar cada pixel */
+}
+.summary-item {
+    flex: 1;
+    position: relative;
+    padding: 0 2px;
+    /* Garante que o item não cresça demais e empurre os outros */
+    min-width: 0; 
+}
+.summary-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 20%;
+    height: 60%;
+    width: 1px;
+    background-color: #eee;
+}
+
+.kpi-label { 
+    font-size: 0.75rem; 
+    text-transform: uppercase; 
+    color: #999; 
+    font-weight: 700; 
+    display: block; 
+    margin-bottom: 4px; 
+    letter-spacing: 0.5px; 
+}
+
+/* Valor padrão para Desktop */
+.kpi-value { 
+    font-size: 1.2rem; 
+    font-weight: 800; 
+    white-space: nowrap; 
+    letter-spacing: -0.5px;
+}
+
+/* --- AJUSTES CRÍTICOS PARA MOBILE (iPhone/Android) --- */
+@media (max-width: 480px) {
+    .custom-card {
+        padding: 16px !important; /* Ganha 16px de espaço lateral (8 de cada lado) */
+    }
+
+    .kpi-label {
+        font-size: 0.6rem !important; /* Label bem pequeno */
+        letter-spacing: 0;
+    }
+
+    .kpi-value {
+        /* MÁGICA AQUI: Fonte baseada na largura da tela (Viewport Width) */
+        /* Isso garante que sempre caiba, não importa quão estreito seja o celular */
+        font-size: 3.5vw !important; 
+    }
+}
+
+.text-primary { color: #0d6efd; }
+.text-success { color: #198754; }
+.text-danger { color: #dc3545; }
+
+
+/* --- FORMULÁRIO DE PAGAMENTO --- */
+.form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.form-group-data { flex: 6; }
+.form-group-valor { flex: 4; }
+
+.form-label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 6px; margin-left: 2px; }
+
+.form-input { 
+    width: 100%; 
+    height: 44px; 
+    padding: 0 8px; 
+    border: 1px solid #ddd; 
+    border-radius: 8px; 
+    box-sizing: border-box;
+    font-size: 0.95rem; /* Desktop */
+    background: #fff;
+    -webkit-appearance: none; /* Remove sombra interna do iOS */
+}
+
+/* Hack para evitar zoom no iPhone ao clicar no input */
+@media (max-width: 480px) {
+    .form-input {
+        font-size: 16px !important; 
+    }
+}
+
+.form-input:focus {
+    border-color: #198754;
+    outline: none;
+}
+
+.text-right { text-align: right; }
+
+.btn-confirm {
+    width: 100%;
+    padding: 14px;
+    background-color: #198754;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 12px;
+    font-size: 0.95rem;
+    transition: background 0.2s;
+    -webkit-appearance: none;
+}
+.btn-confirm:hover { background-color: #146c43; }
+
+/* Botão Extrato */
+.btn-toggle-extrato {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    color: #555;
+    font-weight: 500;
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Tabelas */
+#areaExtrato { margin-top: 15px; border-radius: 12px; overflow: hidden; border: 1px solid #f0f0f0; }
+.nav-tabs { display: flex; list-style: none; padding: 0; margin: 0; background: #f8f9fa; border-bottom: 1px solid #eee; }
+.nav-item { flex: 1; text-align: center; }
+.nav-link { padding: 12px; display: block; text-decoration: none; color: #666; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+.nav-link.active { background: #fff; color: #000; font-weight: bold; border-bottom: 2px solid #198754; }
+
+.table-custom { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; }
+.table-custom th { text-align: left; color: #999; font-weight: 600; border-bottom: 1px solid #eee; padding: 10px 8px; font-size: 0.75rem; text-transform: uppercase; }
+.table-custom td { padding: 10px 8px; border-bottom: 1px solid #f9f9f9; vertical-align: middle; }
+
+.col-center { text-align: center !important; }
+.col-right { text-align: right !important; }
+.fw-bold { font-weight: bold; }
+
+.status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; }
+.pago { background: #198754; } 
+.pendente { background: #ffc107; }
+
+.btn-trash { background: none; border: none; color: #dc3545; cursor: pointer; padding: 4px; font-size: 1rem; opacity: 0.7; }
+.hidden { display: none; }
+
+/* --- LOADER / TELA DE CARREGAMENTO --- */
+#loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.85); /* Fundo branco meio transparente */
+    z-index: 9999; /* Fica acima de tudo */
+    display: none; /* Escondido por padrão */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px); /* Desfoque sutil no fundo (estilo iOS) */
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e0e0e0;
+    border-top: 5px solid #198754; /* Verde do sistema */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+.loader-text {
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 600;
+    text-align: center;
+    padding: 0 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

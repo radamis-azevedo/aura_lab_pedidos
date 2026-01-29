@@ -3,16 +3,17 @@
 {% block title %}Gestão de Pedidos{% endblock %}
 
 {% block content %}
-  <h1>Gestão de Pedidos</h1>
+  <div class="header-action">
+      <h1>Gestão de Pedidos</h1>
+      <button id="toggle-dnd" class="btn-small"><i class="fas fa-random"></i> Reordenar Cards</button>
+  </div>
   <hr>
-
-  <button id="toggle-dnd" class="btn-small">🔀 Reordenar Cards</button>
 
   <div class="grid">
     
     <div id="card-receber" data-id="card-receber" class="card">
       <div class="card-header">
-        <h2>📌 Pedidos a Receber</h2>
+        <h2><i class="fas fa-thumbtack text-danger"></i> Pedidos a Receber</h2>
       </div>
       <div class="card-body">
         <ul class="list">
@@ -25,105 +26,122 @@
 
           <li class="total-row">
             <a href="{{ url_for('orders.areceber') }}" class="btn-small">Detalhes</a>
-            <span>Total Clientes: {{ total_receber_val|format_brl }}</span>
+            <span>Total: {{ total_receber_val|format_brl }}</span>
           </li>
         </ul>
       </div>
     </div>
 
     <div id="card-menu" data-id="card-menu" class="card">
-      <h2>📂 Menu</h2>
+      <h2><i class="fas fa-folder-open text-primary"></i> Menu</h2>
       <div class="menu-btns">
-        <a href="{{ url_for('orders.detalhes', tipo='porcliente', filtro='naoentregues') }}" class="btn">Pedidos por Cliente</a>
-        <a href="{{ url_for('orders.novo_pedido') }}" class="btn">➕ Novo Pedido</a>
-        <a href="#" class="btn">Novo Menu Futuramente</a>
+        <a href="{{ url_for('orders.detalhes', tipo='porcliente', filtro='naoentregues') }}" class="btn">
+            <i class="fas fa-users"></i> Pedidos por Cliente
+        </a>
+        <a href="{{ url_for('orders.novo_pedido') }}" class="btn">
+            <i class="fas fa-plus-circle"></i> Novo Pedido
+        </a>
+        <a href="{{ url_for('finance.index') }}" class="btn">
+            <i class="fas fa-wallet"></i> Financeiro
+        </a>
       </div>
     </div>
 
     <div id="card-prazo" data-id="card-prazo" class="card">
-      <h2>⏳ Prazo de Entrega</h2>
+      <h2><i class="fas fa-hourglass-half text-warning"></i> Prazo de Entrega</h2>
       <ul class="list">
         <li>
           <div>
-            <b>Já era pra serem entregues:</b>
+            <b>Atrasados:</b>
             {{ prazos["atrasados"]["qtd"] }} ({{ prazos["atrasados"]["val"]|format_brl }})
           </div>
-          <a href="{{ url_for('orders.detalhes', tipo='prazo', filtro='atrasados') }}" class="btn-small">Detalhes</a>
+          <a href="{{ url_for('orders.detalhes', tipo='prazo', filtro='atrasados') }}" class="btn-small">Ver</a>
         </li>
         <li>
           <div>
             <b>Para HOJE:</b>
             {{ prazos["hoje"]["qtd"] }} ({{ prazos["hoje"]["val"]|format_brl }})
           </div>
-          <a href="{{ url_for('orders.detalhes', tipo='prazo', filtro='hoje') }}" class="btn-small">Detalhes</a>
+          <a href="{{ url_for('orders.detalhes', tipo='prazo', filtro='hoje') }}" class="btn-small">Ver</a>
         </li>
         <li>
           <div>
-            <b>A partir de amanhã:</b>
+            <b>Futuros:</b>
             {{ prazos["futuros"]["qtd"] }} ({{ prazos["futuros"]["val"]|format_brl }})
           </div>
-          <a href="{{ url_for('orders.detalhes', tipo='prazo', filtro='futuro') }}" class="btn-small">Detalhes</a>
+          <a href="{{ url_for('orders.detalhes', tipo='prazo', filtro='futuro') }}" class="btn-small">Ver</a>
         </li>
       </ul>
     </div>
 
-  <div id="card-status" data-id="card-status" class="card" style="padding: 14px 16px;">
-    <h2>📊 Por Status</h2>
-    {% for grupo, lista in cards_por_status.items() %}
-    {% if lista %}
-      <h3 class="grupo-titulo {% if grupo == 'Com Prazo' %}com-prazo{% else %}sem-prazo{% endif %}">
-      {% if grupo == 'Com Prazo' %}
-        ⏱️ {{ grupo }}
-      {% else %}
-        🦷 {{ grupo }}
-      {% endif %}
-      </h3>
+    <div id="card-status" data-id="card-status" class="card" style="padding: 14px 16px;">
+        <h2><i class="fas fa-chart-pie text-info"></i> Por Status</h2>
+        {% for grupo, lista in cards_por_status.items() %}
+        {% if lista %}
+        <h3 class="grupo-titulo" style="margin-top: 10px; font-size: 0.9rem; text-transform: uppercase; color: #666;">
+            {% if grupo == 'Com Prazo' %}
+                ⏱️ {{ grupo }}
+            {% else %}
+                🦷 {{ grupo }}
+            {% endif %}
+        </h3>
 
-      <ul class="list">
-      {% for s in lista %}
-      <li>
-        <div>
-        <b>{{ s.status }}:</b>
-        {{ s.qtd }} ({{ s.val|format_brl }})
-        </div>
-        <a href="{{ url_for('orders.detalhes', tipo='porstatus', filtro=s.slug) }}" class="btn-small">Detalhes</a>
-      </li>
-      {% endfor %}
-      </ul>
-    {% endif %}
-    {% endfor %}
+        <ul class="list">
+            {% for s in lista %}
+            <li>
+                <div>
+                <b>{{ s.status }}:</b>
+                {{ s.qtd }} ({{ s.val|format_brl }})
+                </div>
+                <a href="{{ url_for('orders.detalhes', tipo='porstatus', filtro=s.slug) }}" class="btn-small">Ver</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endfor %}
+    </div>
+
   </div>
+{% endblock %}
 
-
+{% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      // 1. Salvar Rota
+      sessionStorage.setItem("ultima_rota", window.location.pathname);
+
+      // 2. Drag and Drop
       const grid = document.querySelector(".grid");
       const toggleDnD = document.getElementById("toggle-dnd");
 
-      // Inicializa SortableJS (desktop + mobile)
       const sortable = new Sortable(grid, {
         animation: 150,
-        disabled: true, // começa desativado
+        disabled: true, 
+        handle: ".card-header, h2", // Melhor usabilidade: só arrasta pelo título
         onEnd: salvarOrdem
       });
 
-      // Alterna drag-and-drop ao clicar no botão
-    let dragEnabled = false;
+      let dragEnabled = false;
 
-    toggleDnD.addEventListener("click", () => {
-      dragEnabled = !dragEnabled;
-      sortable.option("disabled", !dragEnabled); // agora respeita o estado real
-      toggleDnD.textContent = dragEnabled ? "✅ Reordene os Cards" : "🔀 Reordenar Cards";
-    });
+      toggleDnD.addEventListener("click", () => {
+        dragEnabled = !dragEnabled;
+        sortable.option("disabled", !dragEnabled);
+        
+        if (dragEnabled) {
+            toggleDnD.innerHTML = '<i class="fas fa-check"></i> Salvar Ordem';
+            toggleDnD.classList.add('btn-active'); // Se tiver estilo para botão ativo
+            grid.classList.add('reordering'); // Para CSS visual se quiser
+        } else {
+            toggleDnD.innerHTML = '<i class="fas fa-random"></i> Reordenar Cards';
+            toggleDnD.classList.remove('btn-active');
+            grid.classList.remove('reordering');
+        }
+      });
 
-
-      // Função para salvar ordem no backend
       function salvarOrdem() {
         const ordem = [...grid.querySelectorAll(".card")].map(c => c.id);
-        // CORREÇÃO NO FETCH: Usa url_for para garantir a rota certa
         fetch("{{ url_for('orders.salvar_layout') }}", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -131,9 +149,9 @@
         });
       }
 
-      // 🔹 Reordenar conforme salvo no backend
+      // 3. Restaurar Ordem
       const ordemSalva = {{ ordem_salva|tojson }};
-      if (ordemSalva.length > 0) {
+      if (ordemSalva && ordemSalva.length > 0) {
         ordemSalva.forEach(cardId => {
           const card = document.getElementById(cardId);
           if (card) grid.appendChild(card);
@@ -141,13 +159,4 @@
       }
     });
   </script>
-  <script>
-    // Salva a última rota visitada antes de mudar de página
-    document.addEventListener("DOMContentLoaded", () => {
-      const currentPath = window.location.pathname;
-      sessionStorage.setItem("ultima_rota", currentPath);
-    });
-  </script>
-
-  
 {% endblock %}

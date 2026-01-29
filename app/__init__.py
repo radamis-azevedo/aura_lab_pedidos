@@ -3,6 +3,8 @@ from flask import Flask
 from .db import db
 from babel.dates import format_date
 import os
+from .routes.orders import orders_bp
+from .routes.finance import finance_bp
 
 def create_app():
     app = Flask(__name__)
@@ -41,5 +43,6 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(orders_bp)
+    app.register_blueprint(finance_bp)
     
     return app

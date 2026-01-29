@@ -1,225 +1,202 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Pedidos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-  <div class="container">
-    <div class="top-bar">
-      <div class="logo">
-        <a href="{{ url_for('dashboard.index') }}">
-          <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
-        </a>
-      </div>
-      {% if usuario %}
-      <div class="user-info">
-        <span>👤 {{ usuario }}</span>
-        <a href="{{ url_for('auth.logout') }}" class="btn-small">Sair</a>
-      </div>
-      {% endif %}
-    </div>
+{% extends "base.html" %}
 
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h2 class="titulo-detalhes {{ tipo }}">{{ filtro }}</h2>
-      <div class="view-switcher">
-        <a href="{{ url_for('orders.detalhes', tipo=tipo, filtro=filtro|lower, modo='lista') }}" 
-           class="view-btn {% if modo_view == 'lista' %}active{% endif %}">📄 Lista</a>
-        <a href="{{ url_for('orders.detalhes', tipo=tipo, filtro=filtro|lower, modo='cards') }}" 
-           class="view-btn {% if modo_view == 'cards' %}active{% endif %}">🃏 Cards</a>
-      </div>
-    </div>
-    <hr>
+{% block title %}Detalhes - {{ filtro }}{% endblock %}
 
-    {% if tipo == "porcliente" %}
-    <div class="switch-box">
-      <label class="switch">
-        <input type="checkbox" id="toggle-entregues" {% if "todos" in filtro|lower %}checked{% endif %}>
-        <span class="slider round"></span>
-      </label>
-      <span class="switch-label">Mostrar pedidos entregues</span>
-    </div>
-    {% endif %}
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/detalhes.css') }}">
+{% endblock %}
 
-    {% if modo_view == 'lista' %}
-      {% if agrupado %}
-        {% for cliente, pedidos in agrupado.items() %}
-          <div class="card cliente {{ tipo }}">
-            <h3>{{ cliente }}</h3>
-            <div class="table-wrapper">
-              <table class="tabela-detalhes">
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 style="color:#007bff; font-weight:bold;">{{ filtro }}</h3>
+</div>
+
+{% if modo_view == 'lista' %}
+    
+    {% for cliente, lista_pedidos in agrupado.items() %}
+    <div class="client-card">
+        <div class="client-header">
+            {{ cliente }}
+        </div>
+
+        <div class="table-scroll">
+            <table class="table-lista">
                 <thead>
-                  <tr>
-                    <th class="col-btn"></th>
-                    <th>#</th>
-                    <th>Status</th>
-                    <th>Paciente</th>
-                    <th>Data Ped</th>
-                    <th>Prazo</th>
-                    <th style="text-align:right;">Valor</th>
-                  </tr>
+                    <tr>
+                        <th class="col-action"></th>
+                        <th class="col-id">#</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-paciente">Paciente</th>
+                        <th class="col-data">Data</th> 
+                        <th class="col-valor">Valor</th>
+                    </tr>
                 </thead>
                 <tbody>
-                  {% for p in pedidos %}
-                  <tr class="accordion-row pedido-row {% if p.STATUS|lower == 'entregue' %}entregue{% endif %}">
-                    <td><button class="accordion-btn" onclick="toggleItensLista('{{ p.NR_PED }}')">+</button></td>
-                    <td><a href="{{ url_for('orders.editar_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="pedido-link">{{ "%02d"|format(p.NR_PED|int) }}</a></td>
-                    <td>
-                      {{ p.STATUS }}
-                      {% set pago = (p.PAGO|string).strip().lower() == 'sim' %}
-                      {% if pago %}
-                        <span title="Pago">💳</span>
-                      {% else %}
-                        <span title="Não Pago">💰</span>
-                      {% endif %}
-                    </td>
-                    <td>{{ p.PACIENTE }}</td>
-                    <td>{{ p.DT_PED|format_date_br }}</td>
-                    <td>{{ p.DT_PRAZO|format_date_br }}</td>
-                    <td style="text-align:right;">{{ p.VLR_NUM|format_brl }}</td>
-                  </tr>
-                  <tr id="itens-lista-{{ p.NR_PED }}" class="accordion-content">
-                    <td colspan="7"><div class="accordion-box conteudo-itens"><em>Carregando...</em></div></td>
-                  </tr>
-                  {% endfor %}
+                    {% for p in lista_pedidos %}
+                    <tr>
+                        <td class="col-action">
+                            <button type="button" class="btn-toggle-mini" 
+                                    onclick="toggleDetails('details-{{ p.NR_PED }}')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </td>
+
+                        <td class="col-id">
+                            <a href="{{ url_for('orders.editar_pedido', nr_ped=p.NR_PED) }}" class="order-link" title="Editar Pedido">
+                                {{ "%03d"|format(p.NR_PED|int) }}
+                            </a>
+                        </td>
+
+                        <td class="col-status">
+                            <div class="status-wrapper">
+                                <a href="{{ url_for('orders.status_pedido', nr_ped=p.NR_PED) }}" 
+                                   style="text-decoration:none; margin-right: 2px;" 
+                                   title="Ver Histórico">
+                                    <i class="fas fa-circle" style="font-size: 0.65rem; color: 
+                                        {% if 'entregue' in p.STATUS|lower or 'finalizado' in p.STATUS|lower %}#28a745
+                                        {% elif 'produ' in p.STATUS|lower %}#ffc107
+                                        {% elif 'atrasado' in p.STATUS|lower %}#dc3545
+                                        {% else %}#6c757d{% endif %};">
+                                    </i>
+                                </a>
+
+                                <span class="status-text">{{ p.STATUS }}</span>
+                                
+                                <a href="{{ url_for('orders.pagamento_pedido', nr_ped=p.NR_PED) }}" style="text-decoration:none;">
+                                    {% if p.PAGO|lower in ['sim','s','true'] %}
+                                        <i class="fas fa-check-circle text-success" style="font-size:0.9rem;"></i>
+                                    {% else %}
+                                        <i class="fas fa-sack-dollar icon-money"></i>
+                                    {% endif %}
+                                </a>
+                            </div>
+                        </td>
+
+                        <td class="col-paciente">
+                            {{ p.PACIENTE or '' }}
+                        </td>
+
+                        <td class="col-data">
+                            {{ p.DT_PEDIDO|default('-', true) }}
+                        </td>
+
+                        <td class="col-valor">
+                            R$ {{ p.VLR_NUM|default(0)|float|round(2) }}
+                        </td>
+                    </tr>
+
+                    <tr id="details-{{ p.NR_PED }}" class="details-row">
+                        <td colspan="6">
+                            <div class="details-box">
+                                
+                                {% if p.ITENS %}
+                                <div class="scroll-wrapper">
+                                    <table class="mini-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Produto</th>
+                                                <th class="num">Qtd</th>
+                                                <th style="text-align:center;">Cor</th>
+                                                <th class="num">Unit.</th>
+                                                <th class="num">Total</th>
+                                                <th>Obs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in p.ITENS %}
+                                            <tr>
+                                                <td><strong>{{ item.PRODUTO }}</strong></td>
+                                                <td class="num">{{ item.QTD_ITEM }}</td>
+                                                <td style="text-align:center;">{{ item.COR }}</td>
+                                                
+                                                <td class="num">
+                                                    {{ item.VLR_COB|replace('R$', '')|replace(' ', '') }}
+                                                </td>
+                                                
+                                                <td class="num text-blue">
+                                                    {% if item.TOTAL_VIEW %}
+                                                        {{ item.TOTAL_VIEW|replace('R$', '')|replace(' ', '') }}
+                                                    {% else %}
+                                                        {{ item.TOTAL_PROD|replace('R$', '')|replace(' ', '') }}
+                                                    {% endif %}
+                                                </td>
+                                                
+                                                <td class="obs">{{ item.OBS_ITEM }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                    <div style="font-style:italic; color:#999; margin-bottom:10px;">Sem produtos cadastrados.</div>
+                                {% endif %}
+
+                                {% if p.CUSTOS %}
+                                <div class="scroll-wrapper gap-top">
+                                    <table class="mini-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="color:#dc3545;">Terceirização / Custo</th> 
+                                                <th class="num">Qtd</th>
+                                                <th class="num">Unit.</th>
+                                                <th class="num">Total</th>
+                                                <th>Obs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for c in p.CUSTOS %}
+                                            <tr>
+                                                <td>{{ c.DESC_CUSTO }}</td>
+                                                <td class="num">{{ c.QTD_CUSTO }}</td>
+                                                <td class="num">
+                                                    {{ c.VLR_UN_CUSTO|replace('R$', '')|replace(' ', '') }}
+                                                </td>
+                                                <td class="num text-red">
+                                                    {% if c.TOTAL_VIEW %}
+                                                        {{ c.TOTAL_VIEW|replace('R$', '')|replace(' ', '') }}
+                                                    {% else %}
+                                                        {{ c.VLR_TOT_CUSTO|replace('R$', '')|replace(' ', '') }}
+                                                    {% endif %}
+                                                </td>
+                                                <td class="obs">{{ c.OBS_CUSTO }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if p.OBS_PED %}
+                                    <div style="margin-top:10px; font-size:0.85rem; color:#444;">
+                                        <span style="font-weight:bold; color:#dc3545;">Obs:</span> {{ p.OBS_PED }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
-              </table>
-            </div>
-          </div>
-        {% endfor %}
-      {% else %}
-        <p>Nenhum pedido encontrado.</p>
-      {% endif %}
+            </table>
+        </div> 
+    </div>
+    {% endfor %}
 
-    {% else %}
-      {% if agrupado %}
-        {% for cliente, pedidos in agrupado.items() %}
-          
-          <div class="client-header-card">{{ cliente }}</div>
-          
-          <div class="client-body-card">
-            {% for p in pedidos %}
-            <div class="order-card">
-              <div class="order-card-header">
-                <span>Pedido #{{ "%02d"|format(p.NR_PED|int) }}</span>
-                <span>{{ p.VLR_NUM|format_brl }}</span>
-              </div>
-              
-              <div class="order-card-body">
-                
-                <div>
-                  <span class="oc-label">Data:</span> 
-                  <span class="oc-val">{{ p.DT_PED|format_date_br }}</span>
-                </div>
-
-                <div>
-                  <span class="oc-label">Prazo:</span> 
-                  <span class="oc-val">{{ p.DT_PRAZO|format_date_br }}</span>
-                  
-                  {% if p.DIAS_DELTA is not none and p.STATUS|lower != 'entregue' %}
-                    {% if p.DIAS_DELTA < 0 %}
-                      <span class="badge-prazo bg-late">Atrasado {{ p.DIAS_DELTA|abs }} dias</span>
-                    {% elif p.DIAS_DELTA == 0 %}
-                      <span class="badge-prazo bg-today">É Hoje!</span>
-                    {% elif p.DIAS_DELTA <= 2 %}
-                      <span class="badge-prazo bg-today">Faltam {{ p.DIAS_DELTA }} dias</span>
-                    {% else %}
-                      <span class="badge-prazo bg-ok">{{ p.DIAS_DELTA }} dias</span>
-                    {% endif %}
-                  {% endif %}
-                </div>
-
-                <div>
-                  <div class="status-highlight {% if 'atrasado' in p.STATUS|lower %}atrasado{% endif %}">
-                    {{ p.STATUS }}
-                  </div>
-                </div>
-
-                <div style="margin-top: 5px;">
-                  <span class="oc-label">Paciente:</span> 
-                  <strong style="color:#333; font-size: 1rem;">{{ p.PACIENTE }}</strong>
-                </div>
-                
-                {% if p.OBS_PED %}
-                <div style="font-style:italic; font-size:0.85em; color:#777;">
-                  Obs: {{ p.OBS_PED }}
-                </div>
-                {% endif %}
-
-                <div class="link-expand" onclick="toggleCardItens('{{ p.NR_PED }}')">
-                  📦 Produtos e Terceirizações +
-                </div>
-
-                <div class="action-row-bottom">
-                  <a href="{{ url_for('orders.status_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="action-link link-hist">
-                    🕒 Histórico
-                  </a>
-                   <a href="{{ url_for('orders.editar_pedido', nr_ped=p.NR_PED) }}?from=detalhes" class="action-link link-edit">
-                    ✏️ Editar
-                  </a>
-                </div>
-
-                <div id="card-itens-{{ p.NR_PED }}" class="card-expand-content">
-                  <em>Carregando detalhes...</em>
-                </div>
-
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        {% endfor %}
-      {% else %}
-        <p>Nenhum pedido encontrado.</p>
-      {% endif %}
+{% else %}
     {% endif %}
 
-    <a href="{{ url_for('dashboard.index') }}" class="btn" style="margin-top:20px;">⬅ Voltar</a>
-  </div>
+{% endblock %}
 
-  <script>
-    // Javascript Unificado
-    function toggleItensLista(nr_ped) {
-      const row = document.getElementById("itens-lista-" + nr_ped);
-      alternarExibicao(row, nr_ped, ".conteudo-itens");
+{% block scripts %}
+<script>
+    function toggleDetails(id) {
+        var row = document.getElementById(id);
+        if (row.style.display === "none" || row.style.display === "") {
+            row.style.display = "table-row";
+        } else {
+            row.style.display = "none";
+        }
     }
-
-    function toggleCardItens(nr_ped) {
-      const div = document.getElementById("card-itens-" + nr_ped);
-      alternarExibicao(div, nr_ped, null); // null pq o div ja é o container
-    }
-
-    function alternarExibicao(elemento, nr_ped, selectorInterno) {
-      const isHidden = (elemento.style.display === "none" || elemento.style.display === "");
-      const displayMode = elemento.tagName === "TR" ? "table-row" : "block";
-      
-      if (isHidden) {
-        elemento.style.display = displayMode;
-        const container = selectorInterno ? elemento.querySelector(selectorInterno) : elemento;
-        carregarConteudo(nr_ped, container);
-      } else {
-        elemento.style.display = "none";
-      }
-    }
-
-    function carregarConteudo(nr_ped, container) {
-      if (container.innerHTML.includes("Carregando") || container.innerHTML.trim() === "") {
-        fetch(`/itens/${nr_ped}`)
-          .then(r => r.text())
-          .then(html => container.innerHTML = html)
-          .catch(e => container.innerHTML = "<p style='color:red'>Erro ao carregar.</p>");
-      }
-    }
-
-    const toggle = document.getElementById("toggle-entregues");
-    if (toggle) {
-      toggle.addEventListener("change", function() {
-        const modoAtual = "{{ modo_view }}";
-        const filtroDestino = this.checked ? 'todos' : 'naoentregues';
-        window.location.href = `{{ url_for('orders.detalhes', tipo='porcliente', filtro='') }}${filtroDestino}?modo=${modoAtual}`;
-      });
-    }
-  </script>
-</body>
-</html>
+</script>
+{% endblock %}

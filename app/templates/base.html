@@ -4,19 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{% endblock %} - Sistema de Pedidos</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  {% block head %}{% endblock %}
 </head>
 <body>
   {% if session.get('usuario') %}
   <div class="top-bar">
     <div class="logo">
       <a href="{{ url_for('dashboard.index') }}">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo AURA">
       </a>
     </div>
     <div class="user-info">
-      <span class="usuario">👤 {{ session['usuario'] }}</span>
-      <a href="{{ url_for('auth.logout') }}" class="btn-small">Sair</a>
+      <span class="usuario"><i class="fas fa-user-circle"></i> {{ session['usuario'] }}</span>
+      <a href="{{ url_for('auth.logout') }}" class="btn-small"><i class="fas fa-sign-out-alt"></i> Sair</a>
     </div>
   </div>
   {% endif %}
@@ -24,5 +29,7 @@
   <div class="container">
     {% block content %}{% endblock %}
   </div>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>

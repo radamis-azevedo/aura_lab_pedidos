@@ -1315,3 +1315,145 @@ body {
     50% { left: 25%; width: 50%; }
     100% { left: 100%; width: 50%; }
 }
+
+/* === ESTILOS DA TABELA DE DETALHES (LISTA) === */
+
+.client-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+}
+
+.client-card-header {
+    background-color: #007bff;
+    color: white;
+    padding: 12px 15px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Wrapper da Rolagem Horizontal */
+.table-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: white;
+}
+
+.table-pedidos {
+    width: 100%;
+    border-collapse: collapse;
+    /* Removemos o min-width fixo para deixar o conteúdo ditar a largura, 
+       mas garantimos que ele expanda */
+}
+
+.table-pedidos th, 
+.table-pedidos td {
+    padding: 12px 10px; /* Padding confortável */
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+    
+    /* O SEGREDO: Não quebra linha nunca, força a rolagem */
+    white-space: nowrap; 
+}
+
+.table-pedidos th {
+    background-color: #f8f9fa;
+    color: #555;
+    font-weight: 600;
+    text-align: left;
+    border-bottom: 2px solid #eee;
+}
+
+/* Colunas Específicas (Ajuste fino de largura) */
+.col-btn { width: 40px; text-align: center; padding-right: 2px !important; }
+.col-id  { width: 60px; padding-left: 2px !important; font-weight: bold; }
+
+/* Botão Expandir (+) */
+.btn-expand {
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* Status e Ícones */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+.status-green { background-color: #28a745; }
+.status-blue { background-color: #007bff; }
+.status-yellow { background-color: #ffc107; }
+.status-red { background-color: #dc3545; }
+.status-gray { background-color: #6c757d; }
+
+.link-finance {
+    text-decoration: none;
+    font-size: 1.1rem;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+/* Área de Detalhes Expandida */
+.details-row { display: none; background-color: #f8faff; }
+.details-content { padding: 15px; border-left: 4px solid #007bff; white-space: normal; /* Aqui pode quebrar linha */ }
+
+/* === TOGGLE SWITCH (O slider arredondado) === */
+.switch-box {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 5px;
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
+    margin-right: 10px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider { background-color: #007bff; }
+input:checked + .slider:before { transform: translateX(22px); }
+
+.switch-label {
+    font-size: 0.95rem;
+    color: #555;
+    font-weight: 500;
+}

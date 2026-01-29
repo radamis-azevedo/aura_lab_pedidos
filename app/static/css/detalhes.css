@@ -1,0 +1,144 @@
+/* app/static/css/detalhes.css */
+
+/* --- LAYOUT DE CARD POR CLIENTE --- */
+.client-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    overflow: hidden; 
+    border: 1px solid #f0f0f0;
+}
+
+/* Cabeçalho Azul (Nome do Cliente) */
+.client-header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 15px;
+    font-weight: 700;
+    font-size: 1rem;
+    text-transform: uppercase;
+    border-left: 5px solid #0056b3;
+    text-align: left; /* Garante alinhamento à esquerda */
+}
+
+/* --- NOVO: CONTAINER DE ROLAGEM HORIZONTAL --- */
+/* Isso impede que a tabela estoure a largura do card */
+.table-scroll {
+    width: 100%;
+    overflow-x: auto; /* Cria barra de rolagem se necessário */
+    -webkit-overflow-scrolling: touch; /* Rolagem suave no celular */
+}
+
+/* --- TABELA INTERNA --- */
+.table-lista {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px; /* Força uma largura mínima para ativar a rolagem em telas pequenas */
+}
+
+/* Cabeçalho da Tabela */
+.table-lista th {
+    background-color: #f9f9f9;
+    color: #666;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    padding: 8px 5px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap; /* Impede quebra de texto no cabeçalho */
+}
+
+/* Linhas da Tabela */
+.table-lista td {
+    padding: 6px 5px;
+    vertical-align: middle;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #f5f5f5;
+    color: #333;
+    white-space: nowrap; /* Mantém o conteúdo em uma linha (exceto se forçarmos quebra) */
+}
+
+/* A coluna paciente pode quebrar linha se quiser, ou manter nowrap */
+.col-paciente { 
+    text-align: left; 
+    color: #555; 
+    white-space: normal !important; /* Permite quebra de linha no nome do paciente */
+    min-width: 150px; 
+} 
+
+/* ... (MANTENHA AS OUTRAS CLASSES: col-action, col-id, btn-toggle-mini etc...) ... */
+.col-action { width: 30px; text-align: center; }
+.col-id     { width: 40px; text-align: center; }
+.col-status { text-align: left; }
+.col-data   { text-align: center; font-size: 0.75rem; color: #777; }
+.col-valor  { text-align: right; font-weight: 600; }
+
+.btn-toggle-mini {
+    width: 20px; height: 20px; padding: 0; display: inline-flex;
+    align-items: center; justify-content: center; border-radius: 4px;
+    font-size: 12px; border: none; background-color: #007bff; color: white;
+    cursor: pointer; transition: background 0.2s;
+}
+.btn-toggle-mini:hover { background-color: #0056b3; }
+
+.order-link { color: #007bff; text-decoration: underline; font-weight: bold; cursor: pointer; }
+.order-link:hover { color: #0056b3; }
+
+.status-wrapper { display: flex; align-items: center; gap: 6px; }
+.status-text { white-space: nowrap; }
+.icon-money { color: #bfa15f; font-size: 0.9rem; }
+
+/* Detalhes */
+.details-row { display: none; background-color: #fcfcfc; }
+.details-box { padding: 10px 15px; border-top: 1px dashed #eee; font-size: 0.8rem; text-align: left; white-space: normal; }
+.details-box ul { margin: 0; padding-left: 0; list-style: none; }
+
+/* app/static/css/detalhes.css */
+
+/* ... (Mantenha o CSS anterior) ... */
+
+/* --- TABELA MINI DE ITENS E CUSTOS --- */
+.scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 10px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+}
+
+.mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem; /* Fonte pequena */
+    background: #fff;
+    min-width: 100%;
+}
+
+.mini-table th {
+    background-color: #f1f1f1;
+    color: #555;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 6px 8px;
+    border-bottom: 1px solid #ddd;
+    white-space: nowrap;
+}
+
+.mini-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #eee;
+    color: #333;
+    white-space: nowrap; /* Não quebra linha (scroll horizontal ativa se precisar) */
+}
+
+/* Colunas Específicas */
+.mini-table .num { text-align: right; }
+.mini-table .obs { font-style: italic; color: #888; white-space: normal; min-width: 150px; }
+
+/* Totais Coloridos */
+.text-blue { color: #007bff; font-weight: bold; }
+.text-red { color: #dc3545; font-weight: bold; }
+
+/* Removemos o título visualmente, mas mantemos espaçamento se houver itens */
+.gap-top { margin-top: 15px; }

@@ -1,0 +1,176 @@
+/* app/static/css/pedido_form.css */
+
+/* --- CONTAINER PRINCIPAL --- */
+.form-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid #f0f0f0;
+    max-width: 600px;
+    margin: 10px auto;
+}
+
+.form-title {
+    color: #333;
+    margin-bottom: 20px;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* --- LAYOUT E ESPAÇAMENTO --- */
+.form-row { 
+    margin-bottom: 12px; 
+}
+
+/* LABELS: Ajuste fino para ficarem "grudados" no input */
+.form-row label, 
+.row-flex label {
+    display: block;
+    margin-bottom: 2px; /* Espaço mínimo */
+    line-height: 1;     /* Remove altura de linha extra */
+    color: #666;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-left: 2px;
+}
+
+/* Classe utilitária para centralizar labels (Usado no Obs) */
+.label-center {
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+
+/* Espaçamento para separar a linha de Obs da linha de cima */
+.row-obs {
+    margin-top: 10px;
+}
+
+/* --- INPUTS E BOTÕES --- */
+.form-control, 
+.btn-icon-only {
+    width: 100%;
+    height: 42px; 
+    padding: 0 10px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1rem;
+    background-color: #fff;
+    box-sizing: border-box; 
+    vertical-align: middle;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.form-control:disabled {
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+/* ALINHAMENTO NUMÉRICO NOS INPUTS */
+/* Força alinhamento à direita para campos que parecem números */
+input[type="number"], 
+#valor_cobrado, 
+#valor-custo {
+    text-align: right;
+}
+
+/* Flexbox para inputs na mesma linha */
+.row-flex {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.row-flex > div {
+    flex: 1; 
+}
+
+/* --- BOTÕES --- */
+.btn-icon-only {
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    width: 42px !important;
+    min-width: 42px;
+    flex: 0 0 42px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    border-radius: 6px;
+}
+.btn-icon-only:hover { background-color: #0b5ed7; }
+
+.btn-remove {
+    background: #ffebee; color: #c62828; border: none; border-radius: 4px;
+    width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;
+}
+.btn-remove:hover { background: #ffcdd2; }
+
+/* --- RODAPÉ --- */
+.actions-footer {
+    margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;
+    display: flex; gap: 10px;
+}
+.btn-save { background: #198754; color: white; border:none; font-weight:bold; flex: 2; cursor: pointer; height: 45px; border-radius: 8px; font-size: 1rem;}
+.btn-back { background: #6c757d; color: white; border:none; flex: 1; text-decoration: none; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 45px; border-radius: 8px; font-size: 1rem;}
+.btn-delete { background: #dc3545; color: white; border:none; flex: 0.5; cursor: pointer; height: 45px; border-radius: 8px; font-size: 1rem;}
+
+/* --- TABELAS --- */
+.table-scroll-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #eee; border-radius: 6px; margin-top: 10px;}
+.table-itens { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 500px; }
+
+.table-itens th { 
+    background: #f8f9fa; 
+    padding: 10px; 
+    border-bottom: 2px solid #ddd; 
+    color: #666; 
+    white-space: nowrap; 
+}
+
+.table-itens td { 
+    padding: 8px 10px; 
+    border-bottom: 1px solid #eee; 
+    vertical-align: middle; 
+}
+
+/* ALINHAMENTO DAS COLUNAS DA TABELA */
+/* Coluna 1 (Produto/Descrição) -> Esquerda */
+.table-itens th:nth-child(1), 
+.table-itens td:nth-child(1) {
+    text-align: left;
+}
+
+/* Colunas Numéricas (Qtd, Cor, Valor) -> Direita */
+/* Ajuste conforme a ordem das colunas no HTML */
+.table-itens th:nth-child(2), .table-itens td:nth-child(2), /* Qtd */
+.table-itens th:nth-child(4), .table-itens td:nth-child(4)  /* Valor */
+{
+    text-align: right;
+}
+
+/* Coluna Cor (3) e Obs (5) ficam padrão (esquerda ou center se preferir) */
+.table-itens th:nth-child(3), .table-itens td:nth-child(3) { text-align: center; } /* Cor */
+
+
+/* --- OUTROS --- */
+.switch-box { display: inline-block; }
+.switch { position: relative; display: inline-block; width: 46px; height: 24px; margin-left: 10px; vertical-align: middle;}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #198754; }
+input:checked + .slider:before { transform: translateX(22px); }
+
+#loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column; }
+.spinner { width: 40px; height: 40px; border: 4px solid #eee; border-top: 4px solid #198754; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+.loader-text { font-weight: 600; color: #333; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

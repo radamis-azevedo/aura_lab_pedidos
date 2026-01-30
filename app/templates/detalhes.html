@@ -8,8 +8,22 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 style="color:#007bff; font-weight:bold;">{{ filtro }}</h3>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+    
+    <h3 style="color:#007bff; font-weight:bold; margin:0;">{{ filtro }}</h3>
+
+    {% if tipo == 'porcliente' %}
+    <div class="switch-box" style="margin:0;">
+        <label class="switch">
+            <input type="checkbox" id="toggleEntregues" 
+                   {% if filtro|lower == 'todos' %}checked{% endif %}
+                   onchange="toggleFilter(this)">
+            <span class="slider round"></span>
+        </label>
+        <span class="switch-label">Mostrar entregues</span>
+    </div>
+    {% endif %}
+
 </div>
 
 {% if modo_view == 'lista' %}
@@ -20,7 +34,7 @@
             {{ cliente }}
         </div>
 
-        <div class="table-scroll">
+       <div class="table-scroll">
             <table class="table-lista">
                 <thead>
                     <tr>
@@ -28,8 +42,8 @@
                         <th class="col-id">#</th>
                         <th class="col-status">Status</th>
                         <th class="col-paciente">Paciente</th>
-                        <th class="col-data">Data</th> 
-                        <th class="col-valor">Valor</th>
+                        <th class="col-valor hide-mobile">Valor</th>
+                        <th class="col-data hide-mobile">Data</th> 
                     </tr>
                 </thead>
                 <tbody>
@@ -53,12 +67,15 @@
                                 <a href="{{ url_for('orders.status_pedido', nr_ped=p.NR_PED) }}" 
                                    style="text-decoration:none; margin-right: 2px;" 
                                    title="Ver Histórico">
-                                    <i class="fas fa-circle" style="font-size: 0.65rem; color: 
-                                        {% if 'entregue' in p.STATUS|lower or 'finalizado' in p.STATUS|lower %}#28a745
-                                        {% elif 'produ' in p.STATUS|lower %}#ffc107
-                                        {% elif 'atrasado' in p.STATUS|lower %}#dc3545
-                                        {% else %}#6c757d{% endif %};">
-                                    </i>
+                                    {% set cor_status = '#6c757d' %}
+                                    {% if 'entregue' in p.STATUS|lower or 'finalizado' in p.STATUS|lower %}
+                                        {% set cor_status = '#28a745' %}
+                                    {% elif 'produ' in p.STATUS|lower %}
+                                        {% set cor_status = '#ffc107' %}
+                                    {% elif 'atrasado' in p.STATUS|lower %}
+                                        {% set cor_status = '#dc3545' %}
+                                    {% endif %}
+                                    <i class="fas fa-circle" style="font-size: 0.65rem; color: {{ cor_status }};"></i>
                                 </a>
 
                                 <span class="status-text">{{ p.STATUS }}</span>
@@ -77,12 +94,12 @@
                             {{ p.PACIENTE or '' }}
                         </td>
 
-                        <td class="col-data">
-                            {{ p.DT_PEDIDO|default('-', true) }}
+                        <td class="col-valor hide-mobile">
+                            R$ {{ "{:,.2f}".format(p.VLR_NUM|default(0)|float).replace(',', 'X').replace('.', ',').replace('X', '.') }}
                         </td>
 
-                        <td class="col-valor">
-                            R$ {{ p.VLR_NUM|default(0)|float|round(2) }}
+                        <td class="col-data hide-mobile">
+                            {{ p.DT_PEDIDO|default('-', true) }}
                         </td>
                     </tr>
 
@@ -179,23 +196,41 @@
                     {% endfor %}
                 </tbody>
             </table>
-        </div> 
+        </div>
     </div>
     {% endfor %}
 
 {% else %}
     {% endif %}
+<div class="text-center mt-5 mb-5">
+        <a href="{{ url_for('dashboard.index') }}" class="back-btn" style="padding: 10px 30px; font-size: 1rem;">
+            <i class="fas fa-arrow-left"></i> Voltar ao Menu
+        </a>
+    </div>
 
 {% endblock %}
 
+
 {% block scripts %}
 <script>
+    // 1. Função para abrir/fechar os detalhes do pedido (Botão +)
     function toggleDetails(id) {
         var row = document.getElementById(id);
         if (row.style.display === "none" || row.style.display === "") {
             row.style.display = "table-row";
         } else {
             row.style.display = "none";
+        }
+    }
+
+    // 2. Função para o Switch "Mostrar Entregues"
+    function toggleFilter(checkbox) {
+        if (checkbox.checked) {
+            // Se marcou: Recarrega a página mostrando TODOS
+            window.location.href = "{{ url_for('orders.detalhes', tipo='porcliente', filtro='todos') }}";
+        } else {
+            // Se desmarcou: Recarrega mostrando apenas NÃO ENTREGUES
+            window.location.href = "{{ url_for('orders.detalhes', tipo='porcliente', filtro='naoentregues') }}";
         }
     }
 </script>

@@ -315,25 +315,37 @@ def excluir_pedido(nr_ped):
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
-# =============================
-# PAGAMENTO
-# =============================
-@orders_bp.route("/pagamento/<nr_ped>", methods=["GET", "POST"])
-def pagamento_pedido(nr_ped):
-    pedidos = db.sheets['pedidos'].get_all_records()
-    pedido = next((p for p in pedidos if str(p.get("NR_PED")) == str(nr_ped)), None)
-    
-    if not pedido:
-        flash("❌ Pedido não encontrado.", "error")
-        return redirect(url_for("dashboard.index"))
+# Em app/routes/orders.py
 
-    return render_template(
-        "pagamento.html",
-        nr_ped=nr_ped,
-        pago=is_paid(pedido.get("PAGO")),
-        dt_receb=pedido.get("DT_RECEB"),
-        usuario=session.get("usuario")
-    )
+@orders_bp.route("/pagamento/<nr_ped>")
+def pagamento_pedido(nr_ped):
+    try:
+        # 1. Carrega pedidos para achar o cliente
+        pedidos = db.sheets['pedidos'].get_all_records()
+        
+        # Busca o pedido de forma segura (comparando texto com texto e sem espaços)
+        nr_alvo = str(nr_ped).strip()
+        pedido = next((p for p in pedidos if str(p.get("NR_PED", "")).strip() == nr_alvo), None)
+        
+        if not pedido:
+            flash("❌ Pedido não encontrado.", "error")
+            return redirect(url_for("dashboard.index"))
+        
+        # 2. Pega o nome do Cliente
+        cliente_nome = str(pedido.get("CLIENTE", "")).strip()
+
+        if not cliente_nome:
+            flash("⚠️ Esse pedido não tem nome de cliente cadastrado.", "warning")
+            return redirect(url_for("dashboard.index"))
+
+        # 3. REDIRECIONA para o Financeiro
+        # Isso cria uma URL tipo: /financeiro/?cliente=RAFAELA...
+        return redirect(url_for('finance.index', cliente=cliente_nome))
+
+    except Exception as e:
+        print(f"Erro na rota pagamento: {e}") # Log no terminal
+        flash("Erro ao tentar abrir financeiro. Tente novamente.", "error")
+        return redirect(url_for("dashboard.index"))
 
 @orders_bp.route("/pagamento/<nr_ped>/confirmar", methods=["POST"])
 def confirmar_pagamento(nr_ped):

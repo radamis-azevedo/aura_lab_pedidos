@@ -16,4 +16,4 @@ COPY . .
 # Comando de execução padrão do Cloud Run
 # 'exec' garante que o gunicorn receba os sinais de parada corretamente
 # --bind :$PORT faz ele ouvir na porta que o Google mandar
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 wsgi:app
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 run:app
